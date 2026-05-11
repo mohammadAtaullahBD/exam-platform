@@ -3,7 +3,7 @@
 # Exam Platform — Project Context
 
 ## Stack
-- Framework: Next.js 14 (App Router)
+- Framework: Next.js (App Router)
 - Database: Supabase (PostgreSQL)
 - Auth: NextAuth.js + Supabase Auth
 - Hosting: Vercel
