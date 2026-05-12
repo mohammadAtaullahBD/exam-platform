@@ -29,7 +29,7 @@
 ## Common Issues
 
 - Verification link opens `localhost`: Supabase Auth Site URL or Redirect URLs are wrong.
-- Verification link says expired/invalid: request a fresh email link and ensure `/auth/callback` is allow-listed.
+- Verification link says expired/invalid: request a fresh email link and ensure `/auth/callback` is allow-listed. Supabase may send either `?code=` or `#access_token=` links; the app supports both.
 - Signup succeeds but profile is missing: check `SUPABASE_SERVICE_KEY`, `public.users` schema, and migration status.
 - Dashboard redirects to login: no Supabase SSR session cookie exists; sign in again or complete verification.
 - Promoted user still sees old role: sign out and sign back in to refresh JWT claims.

@@ -7,7 +7,9 @@
 - Public landing page added at `/`.
 - Public signup creates Supabase Auth users, assigns trusted `app_metadata.role`, and upserts `public.users`.
 - Signup redirects to `/auth/check-email` with clear next steps.
-- Email verification callback added at `/auth/callback`.
+- Signup also shows an immediate in-place success state telling users to verify email.
+- Email verification callback added at `/auth/callback` and supports both PKCE query-code links and token-fragment links.
+- `/api/auth/sync-profile` syncs verified browser sessions into `public.users`.
 - Success and failure pages added at `/auth/verified` and `/auth/error`.
 - Protected starter dashboard added at `/dashboard`.
 - Logout button clears Supabase session and returns to `/`.

@@ -10,12 +10,14 @@ export function SignUpForm() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [signedUpEmail, setSignedUpEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setMessage("");
+    setSignedUpEmail("");
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
@@ -53,8 +55,35 @@ export function SignUpForm() {
     }
 
     event.currentTarget.reset();
-    setMessage(payload.message ?? "Account created. Check your email.");
-    router.push("/auth/check-email");
+    setSignedUpEmail(email);
+    setMessage(
+      payload.message ??
+        "Account created. Check your email to verify your account before signing in.",
+    );
+    window.setTimeout(() => {
+      router.push("/auth/check-email");
+    }, 900);
+  }
+
+  if (signedUpEmail) {
+    return (
+      <div className="space-y-5">
+        <AuthMessage tone="success">
+          Signup succeeded. We sent a verification email to{" "}
+          <span className="font-semibold">{signedUpEmail}</span>.
+        </AuthMessage>
+        <p className="text-sm leading-6 text-[#5f665f]">
+          Open the email and click the confirmation link. After verification,
+          you can continue to your dashboard.
+        </p>
+        <Link
+          className="flex h-12 w-full items-center justify-center rounded-md bg-[#17211b] px-5 text-sm font-semibold text-white transition hover:bg-[#26352b]"
+          href="/auth/check-email"
+        >
+          View next steps
+        </Link>
+      </div>
+    );
   }
 
   return (

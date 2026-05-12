@@ -2,6 +2,9 @@
 
 ## 2026-05-12
 
+- Fixed `/auth/callback` to support Supabase token-fragment verification links (`#access_token` and `#refresh_token`) as well as PKCE `?code=` links.
+- Added `/api/auth/sync-profile` so client-processed verification links can still update `public.users` through trusted server code.
+- Changed signup to show an immediate in-place success state telling users to verify email before redirecting to `/auth/check-email`.
 - Replaced active NextAuth flow with Supabase SSR auth.
 - Removed unused NextAuth dependency and route/config files.
 - Added public landing page at `/`.

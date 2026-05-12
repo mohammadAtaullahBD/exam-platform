@@ -8,6 +8,8 @@ Use local docs in `node_modules/next/dist/docs/` before editing framework-specif
 
 Use Supabase Auth directly for credentials, sessions, email verification, and logout. The app no longer uses NextAuth.
 
+Email verification is handled in a browser page, not a route handler, because Supabase can send session tokens in the URL fragment and fragments are not sent to servers.
+
 ## App Profiles
 
 Use `public.users` as the application profile table linked by `id = auth.users.id`.

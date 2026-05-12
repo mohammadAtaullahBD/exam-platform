@@ -4,7 +4,7 @@
 
 - `app/` contains Next.js 16 App Router pages and route handlers.
 - `app/(auth)/` contains public sign-in, sign-up, and password-reset UI.
-- `app/auth/callback/route.ts` exchanges Supabase email verification codes for SSR cookies.
+- `app/auth/callback/page.tsx` handles Supabase email verification links in the browser so both PKCE `?code=` links and implicit `#access_token=` links work.
 - `app/auth/check-email`, `app/auth/verified`, and `app/auth/error` provide clear auth lifecycle pages.
 - `app/dashboard/page.tsx` is the protected starter dashboard.
 - `app/api/auth/signup/route.ts` handles public student/teacher signup.
@@ -26,5 +26,5 @@
 - Supabase Auth is the source of truth for credentials, email verification, and sessions.
 - Browser sign-in uses `supabase.auth.signInWithPassword`.
 - Signup creates a Supabase Auth user, stores trusted role in `app_metadata.role`, and upserts `public.users`.
-- Email links redirect to `/auth/callback`, which calls `exchangeCodeForSession` and then sends users to `/auth/verified`.
+- Email links redirect to `/auth/callback`, which exchanges PKCE codes or sets token-fragment sessions, syncs the profile through `/api/auth/sync-profile`, and then sends users to `/auth/verified`.
 - `public.users` is the app profile table; it must not store passwords.
