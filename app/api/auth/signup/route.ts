@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { isPublicSignupRole } from "@/lib/roles";
+import { getSiteUrl } from "@/lib/site-url";
 import { createAuthClient } from "@/lib/supabase/auth-client";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { upsertUserProfile } from "@/lib/supabase/users";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
@@ -29,6 +31,7 @@ export async function POST(request: Request) {
     email,
     password,
     options: {
+      emailRedirectTo: `${getSiteUrl(request.url)}/auth/callback`,
       data: {
         name,
       },
@@ -47,6 +50,7 @@ export async function POST(request: Request) {
     data.user.id,
     {
       app_metadata: {
+        ...data.user.app_metadata,
         role,
       },
     },
@@ -59,8 +63,28 @@ export async function POST(request: Request) {
     );
   }
 
+  const { data: updatedUser, error: getUserError } =
+    await admin.auth.admin.getUserById(data.user.id);
+
+  if (getUserError || !updatedUser.user) {
+    return NextResponse.json(
+      { error: "Account created, but profile setup failed." },
+      { status: 500 },
+    );
+  }
+
+  const { error: profileError } = await upsertUserProfile(updatedUser.user, role);
+
+  if (profileError) {
+    return NextResponse.json(
+      { error: "Account created, but profile setup failed." },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json({
-    message: "Account created. Check your email if confirmation is required.",
+    message:
+      "Account created. Check your email to verify your account before signing in.",
     role,
   });
 }

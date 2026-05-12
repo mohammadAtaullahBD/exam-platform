@@ -2,26 +2,29 @@
 
 ## App Structure
 
-- `app/` contains App Router pages and route handlers.
-- `app/(auth)/` contains auth UI routes and shared auth components.
-- `app/api/auth/[...nextauth]/route.ts` exposes NextAuth handlers.
+- `app/` contains Next.js 16 App Router pages and route handlers.
+- `app/(auth)/` contains public sign-in, sign-up, and password-reset UI.
+- `app/auth/callback/route.ts` exchanges Supabase email verification codes for SSR cookies.
+- `app/auth/check-email`, `app/auth/verified`, and `app/auth/error` provide clear auth lifecycle pages.
+- `app/dashboard/page.tsx` is the protected starter dashboard.
 - `app/api/auth/signup/route.ts` handles public student/teacher signup.
-- `app/api/health/route.ts` is a lightweight Supabase keepalive endpoint.
-- `lib/roles.ts` defines role types and validation.
-- `lib/auth.ts` defines NextAuth configuration and server helpers.
-- `lib/supabase/` contains browser, server, admin, and proxy Supabase clients.
-- `proxy.ts` refreshes Supabase SSR cookies using the Next.js 16 proxy convention.
+- `app/api/admin/bootstrap/route.ts` creates the first admin using `ADMIN_SETUP_TOKEN`.
+- `app/api/admin/users/[userId]/role/route.ts` lets an existing admin promote/demote users.
+- `lib/supabase/` contains browser, server, admin, proxy, and profile helpers.
+- `proxy.ts` refreshes Supabase SSR cookies and redirects unauthenticated dashboard visits.
 
 ## Runtime Rules
 
 - Use Server Components by default.
-- Use Client Components only for browser interactivity such as forms.
+- Use Client Components only for browser interactivity such as forms and logout.
 - Keep privileged Supabase operations in server-only modules.
 - Do not use `middleware.ts`; Next.js 16 uses `proxy.ts`.
+- Do not reintroduce NextAuth unless the whole auth architecture is deliberately redesigned.
 
 ## Auth Flow
 
-- Sign in uses NextAuth Credentials provider and Supabase password auth.
-- Session role is read from Supabase `app_metadata.role`.
-- Public signup allows `student` and `teacher` only.
-- Admin role assignment must happen through trusted admin-only logic.
+- Supabase Auth is the source of truth for credentials, email verification, and sessions.
+- Browser sign-in uses `supabase.auth.signInWithPassword`.
+- Signup creates a Supabase Auth user, stores trusted role in `app_metadata.role`, and upserts `public.users`.
+- Email links redirect to `/auth/callback`, which calls `exchangeCodeForSession` and then sends users to `/auth/verified`.
+- `public.users` is the app profile table; it must not store passwords.

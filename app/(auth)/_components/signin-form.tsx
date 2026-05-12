@@ -1,9 +1,10 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+import { createClient } from "@/lib/supabase/client";
 
 import { AuthMessage } from "./auth-message";
 
@@ -26,21 +27,20 @@ export function SignInForm({ callbackUrl, initialError }: SignInFormProps) {
     const email = String(formData.get("email") ?? "");
     const password = String(formData.get("password") ?? "");
 
-    const result = await signIn("credentials", {
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
-      redirect: false,
-      callbackUrl,
     });
 
     setIsSubmitting(false);
 
-    if (!result?.ok) {
-      setError("Those credentials did not match an account.");
+    if (signInError) {
+      setError(signInError.message);
       return;
     }
 
-    router.push(result.url ?? callbackUrl);
+    router.push(callbackUrl);
     router.refresh();
   }
 

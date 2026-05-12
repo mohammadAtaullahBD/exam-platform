@@ -10,29 +10,26 @@
 6. Build command: `npm run vercel-build`.
 7. Output directory: leave default.
 8. Add all required environment variables from `.env.example`.
-9. Click **Deploy**.
+9. Set Supabase Auth URL configuration:
+   - Site URL: production app URL.
+   - Redirect URLs: production `/auth/callback` and local `http://localhost:3000/auth/callback`.
+10. Apply `supabase/migrations/20260512180000_auth_profiles_and_admin.sql` in Supabase SQL Editor or through the Supabase CLI when installed.
+11. Deploy.
 
 ## Production Environment Variables
 
-- `NEXTAUTH_SECRET`
-- `NEXTAUTH_URL=https://your-project.vercel.app`
+- `NEXT_PUBLIC_SITE_URL=https://your-project.vercel.app`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_KEY`
-
-## Future Redeploys
-
-- Commit changes.
-- Push to the connected production branch.
-- Vercel automatically builds and deploys.
-- For manual redeploys, open the Vercel project, go to **Deployments**, select a deployment, then click **Redeploy**.
+- `ADMIN_SETUP_TOKEN` until first admin setup is complete
 
 ## Common Issues
 
-- Missing `NEXTAUTH_SECRET`: sign-in/session errors.
-- Wrong `NEXTAUTH_URL`: callbacks redirect to the wrong host.
-- Missing `SUPABASE_SERVICE_KEY`: signup role assignment and health check fail.
-- Health endpoint returns `degraded`: Supabase responded but the `users` table/query is not ready.
-- Build fails after Next.js changes: read `node_modules/next/dist/docs/` for Next.js 16 conventions.
+- Verification link opens `localhost`: Supabase Auth Site URL or Redirect URLs are wrong.
+- Verification link says expired/invalid: request a fresh email link and ensure `/auth/callback` is allow-listed.
+- Signup succeeds but profile is missing: check `SUPABASE_SERVICE_KEY`, `public.users` schema, and migration status.
+- Dashboard redirects to login: no Supabase SSR session cookie exists; sign in again or complete verification.
+- Promoted user still sees old role: sign out and sign back in to refresh JWT claims.

@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AuthMessage } from "./auth-message";
 
 export function SignUpForm() {
+  const router = useRouter();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,14 +24,23 @@ export function SignUpForm() {
     const password = String(formData.get("password") ?? "");
     const role = String(formData.get("role") ?? "student");
 
-    const response = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name, email, password, role }),
-    });
-    const payload = (await response.json()) as {
+    let response: Response;
+
+    try {
+      response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, email, password, role }),
+      });
+    } catch {
+      setIsSubmitting(false);
+      setError("Could not reach the signup service. Please try again.");
+      return;
+    }
+
+    const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
       message?: string;
     };
@@ -42,7 +53,8 @@ export function SignUpForm() {
     }
 
     event.currentTarget.reset();
-    setMessage(payload.message ?? "Account created.");
+    setMessage(payload.message ?? "Account created. Check your email.");
+    router.push("/auth/check-email");
   }
 
   return (
@@ -57,6 +69,7 @@ export function SignUpForm() {
           name="name"
           type="text"
           autoComplete="name"
+          disabled={isSubmitting}
           required
         />
       </label>
@@ -68,6 +81,7 @@ export function SignUpForm() {
           name="email"
           type="email"
           autoComplete="email"
+          disabled={isSubmitting}
           required
         />
       </label>
@@ -80,11 +94,12 @@ export function SignUpForm() {
           type="password"
           autoComplete="new-password"
           minLength={8}
+          disabled={isSubmitting}
           required
         />
       </label>
 
-      <fieldset>
+      <fieldset disabled={isSubmitting}>
         <legend className="text-sm font-medium text-[#26352b]">
           Account type
         </legend>

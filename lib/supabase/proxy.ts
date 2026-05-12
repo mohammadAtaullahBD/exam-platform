@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -32,7 +33,24 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  await supabase.auth.getClaims();
+  const { data } = await supabase.auth.getClaims();
+
+  if (pathname.startsWith("/dashboard") && !data?.claims) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/signin";
+    redirectUrl.searchParams.set(
+      "callbackUrl",
+      `${request.nextUrl.pathname}${request.nextUrl.search}`,
+    );
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if ((pathname === "/signin" || pathname === "/signup") && data?.claims) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/dashboard";
+    redirectUrl.search = "";
+    return NextResponse.redirect(redirectUrl);
+  }
 
   return supabaseResponse;
 }

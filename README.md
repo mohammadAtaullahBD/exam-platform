@@ -32,20 +32,20 @@ npm run start        # serve production build locally
 ## Environment Setup Guide
 
 1. Copy `.env.example` to `.env.local`.
-2. Add your Supabase and NextAuth values.
+2. Add your Supabase values.
 3. Never commit `.env.local`.
 
 Required variables:
 
-- `NEXTAUTH_SECRET`
-- `NEXTAUTH_URL`
+- `NEXT_PUBLIC_SITE_URL`
+- `ADMIN_SETUP_TOKEN`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_KEY`
 
-Generate a strong `NEXTAUTH_SECRET` with:
+Generate a strong `ADMIN_SETUP_TOKEN` with:
 
 ```bash
 openssl rand -base64 32
@@ -70,8 +70,10 @@ On Windows PowerShell, use:
    - Build Command: `npm run vercel-build`
    - Output Directory: leave default
 8. Add the required environment variables in **Project Settings > Environment Variables**.
-9. Set `NEXTAUTH_URL` to the production URL, for example `https://your-project.vercel.app`.
-10. Click **Deploy**.
+9. Set `NEXT_PUBLIC_SITE_URL` to the production URL, for example `https://your-project.vercel.app`.
+10. In Supabase Auth URL Configuration, allow `https://your-project.vercel.app/auth/callback` and `http://localhost:3000/auth/callback`.
+11. Apply `supabase/migrations/20260512180000_auth_profiles_and_admin.sql`.
+12. Click **Deploy**.
 
 ## Vercel Settings
 
@@ -157,7 +159,7 @@ If it returns `degraded`, Supabase was reached but the lightweight `users` table
 
 ## Common Deployment Issues
 
-- **NextAuth redirects to localhost:** update `NEXTAUTH_URL` in Vercel.
+- **Verification redirects to localhost:** update Supabase Auth Site URL and Redirect URLs.
 - **Signup role assignment fails:** check `SUPABASE_SERVICE_KEY`.
 - **Health endpoint returns degraded:** check that the queried table exists and is accessible.
 - **Build errors after framework changes:** read `node_modules/next/dist/docs/` for Next.js 16 behavior.

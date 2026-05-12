@@ -9,6 +9,8 @@ These rules apply to every AI agent and developer working in this repository.
 5. Never commit real secrets. Use `.env.local` locally and `.env.example` for documentation.
 6. Never expose `SUPABASE_SERVICE_KEY` or any secret key to client components.
 7. Public signup may create `student` and `teacher` users only. Admin roles must be assigned by trusted admin-only logic.
-8. Update `/project-memory` after completing meaningful work, especially architecture, auth, database, deployment, or dependency changes.
-9. Document important decisions in `/project-memory/decisions.md`.
-10. Run `npm run check` before deployment-oriented commits when time permits.
+8. Supabase Auth is the source of truth for credentials and sessions. `public.users` is only the application profile table.
+9. The first admin is created through the server-only `/api/admin/bootstrap` route using `ADMIN_SETUP_TOKEN`; later role changes use admin-only server routes.
+10. Update `/project-memory` after completing meaningful work, especially architecture, auth, database, deployment, or dependency changes.
+11. Document important decisions in `/project-memory/decisions.md`.
+12. Run `npm run check` before deployment-oriented commits when time permits.

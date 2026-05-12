@@ -4,6 +4,18 @@
 
 Use local docs in `node_modules/next/dist/docs/` before editing framework-specific code. This repo uses Next.js 16, where `proxy.ts` replaces the old middleware convention.
 
+## Auth Source of Truth
+
+Use Supabase Auth directly for credentials, sessions, email verification, and logout. The app no longer uses NextAuth.
+
+## App Profiles
+
+Use `public.users` as the application profile table linked by `id = auth.users.id`.
+
+- AI seed users in `public.users` are not real login users unless matching Supabase Auth users exist.
+- New signup users must exist in both `auth.users` and `public.users`.
+- `password_hash` is legacy/deprecated and must not contain real passwords.
+
 ## Roles
 
 Roles are `student`, `teacher`, and `admin`.
@@ -13,12 +25,8 @@ Roles are `student`, `teacher`, and `admin`.
 - Authorization reads trusted Supabase `app_metadata.role`.
 - User-editable metadata is not trusted for authorization.
 
-## Supabase Clients
+## Admin Creation
 
-- Browser client uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
-- Server/admin clients are server-only.
-- `SUPABASE_SERVICE_KEY` is only used in server route handlers or server-only modules.
+The first admin is created with `/api/admin/bootstrap`, guarded by `ADMIN_SETUP_TOKEN`, and only if no Supabase Auth user already has `app_metadata.role = admin`.
 
-## Deployment
-
-The deployment target is Vercel. `vercel.json` pins the framework and build/install commands without adding platform-specific cron behavior.
+After that, admins use `/api/admin/users/[userId]/role` to promote/demote users.
