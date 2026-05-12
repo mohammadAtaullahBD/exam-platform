@@ -3,3 +3,8 @@
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
+
+# Project Memory Required
+
+Before making changes, read `AGENT_RULES.md` and every file in `/project-memory`.
+After meaningful work, update `/project-memory` so future agents can continue cleanly.
