@@ -47,11 +47,11 @@ export default async function Home() {
             Online exams for growing classrooms
           </p>
           <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight sm:text-6xl">
-            Create, take, and manage exams from one role-aware workspace.
+            Create, take, and manage exams from one secure workspace.
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-7 text-[#5f665f] sm:text-lg">
             Students get a clear place to sit exams. Teachers get room to build
-            assessments. Admins keep access tidy as the platform grows.
+            assessments. Manage everything from a unified dashboard.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
@@ -73,7 +73,6 @@ export default async function Home() {
           {[
             ["Student", "Verify email, sign in, and reach a protected dashboard."],
             ["Teacher", "Use the same secure flow with a teacher profile role."],
-            ["Admin", "Bootstrap once, then promote trusted users server-side."],
           ].map(([title, text]) => (
             <div
               key={title}

@@ -6,7 +6,7 @@ Exam Platform is a production-oriented Next.js App Router application for online
 
 - Students take exams and view their own progress.
 - Teachers create and manage questions/exams for their own students.
-- Admins can see and manage app users and future platform data.
+- Admins act as super-users to manage app users and platform data (internal use only).
 
 ## Stack
 
@@ -18,6 +18,6 @@ Exam Platform is a production-oriented Next.js App Router application for online
 - `@supabase/ssr` for server/client session sync
 - Vercel deployment target
 
-## Agent Note
+## Universal Agent Framework
 
-Future agents must read every file in `/project-memory`, `AGENT_RULES.md`, `AGENTS.md`, and relevant local Next.js docs before making changes.
+This project uses a multi-agent collaboration framework. Every agent MUST follow the guidelines in `AGENTS.md` and track progress in `PROJECT_HISTORY.md`. Before starting any task, perform a mandatory audit of `AGENTS.md`, `PROJECT_HISTORY.md`, and all files in `/project-memory/`.

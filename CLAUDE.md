@@ -1,49 +1,32 @@
-@AGENTS.md
+# Claude Agent Context
 
-# Exam Platform - Project Context
+This file provides specific context for the Claude AI agent. It supplements the universal framework defined in `AGENTS.md`.
 
-## Stack
+## 📖 Required Reading
+1. `AGENTS.md`: Universal collaboration framework.
+2. `AGENT_RULES.md`: Core development rules.
+3. `PROJECT_HISTORY.md`: Recent activity and status.
+4. `/project-memory/`: Detailed project documentation.
 
-- Framework: Next.js 16 App Router
-- Database: Supabase PostgreSQL
-- Auth: Supabase Auth with `@supabase/ssr`
-- Hosting: Vercel
-- Email: Supabase Auth email templates for verification
-- Styling: Tailwind CSS
+## 🛠 Tech Stack
+- **Framework**: Next.js 16 App Router
+- **Database**: Supabase PostgreSQL
+- **Auth**: Supabase Auth (`@supabase/ssr`)
+- **Styling**: Tailwind CSS 4
 
-## Current Auth Model
+## 🔐 Environment Variables
+Use these variables for Supabase connection:
+- `NEXT_PUBLIC_SUPABASE_URL`: Project URL (Public & Server)
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Anon key (Public & Server)
+- `SUPABASE_SERVICE_KEY`: Service role key (Server-only secret)
+- `ADMIN_SETUP_TOKEN`: Bootstrap secret
 
-- Supabase Auth stores credentials, email verification state, and sessions.
-- `public.users` is the application profile table linked by `id = auth.users.id`.
-- Public signup may create `student` and `teacher` accounts only.
-- Admin roles are assigned by trusted server routes only.
-- Do not reintroduce NextAuth without a deliberate architecture change.
+## 🏗 Key Architecture Rules
+- **Environment**: Do NOT use `SUPABASE_URL` or `SUPABASE_ANON_KEY`. Use the `NEXT_PUBLIC_` variants everywhere.
+- **Admin**: Admin is a hidden super-user. Never expose admin details in public UI or marketing.
+- **Roles**: `student`, `teacher`, `admin`.
+- **Auth**: Use `lib/supabase/` helpers for client/server/admin clients.
 
-## Key Routes
-
-- `/` public landing page
-- `/signin` and `/signup` public auth pages
-- `/auth/callback` Supabase email verification callback
-- `/auth/check-email`, `/auth/verified`, `/auth/error` lifecycle pages
-- `/dashboard` protected starter dashboard
-- `/api/admin/bootstrap` first-admin setup
-- `/api/admin/users/[userId]/role` admin-only role updates
-
-## Key Rules
-
-- Never expose Supabase service key or `ADMIN_SETUP_TOKEN` on the client side.
-- Use Row-Level Security for public tables.
-- Use trusted `app_metadata.role`, not user-editable metadata, for authorization.
-- Use server components by default; client components only when needed.
-- Read `/project-memory` before changing architecture, auth, database, or deployment behavior.
-
-## Environment Variables
-
-- `NEXT_PUBLIC_SITE_URL`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_KEY`
-- `ADMIN_SETUP_TOKEN`
-- `RESEND_API_KEY` optional/future
+## 🔄 Workflow
+- Update `PROJECT_HISTORY.md` after every significant change.
+- Keep `/project-memory/` updated for long-term documentation.
