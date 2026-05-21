@@ -57,8 +57,9 @@ export async function POST(request: Request) {
   );
 
   if (roleError) {
+    console.error("Role assignment error:", roleError);
     return NextResponse.json(
-      { error: "Account created, but role assignment failed." },
+      { error: `Account created, but role assignment failed: ${roleError.message}` },
       { status: 500 },
     );
   }
