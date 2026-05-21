@@ -6,7 +6,7 @@ export default function SignUpPage() {
     <AuthShell
       eyebrow="Get started"
       title="Create your account"
-      description="Choose student or teacher access during signup. Admin access can only be granted later by an admin."
+      description="Choose student or teacher access to get started with your workspace."
     >
       <SignUpForm />
     </AuthShell>

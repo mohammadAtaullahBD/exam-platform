@@ -24,19 +24,18 @@ export function AuthShell({
 
           <div className="max-w-xl">
             <p className="mb-5 text-sm font-medium uppercase tracking-[0.2em] text-[#9dc6ad]">
-              Student, teacher, admin
+              Role-based Workspace
             </p>
             <h1 className="text-5xl font-semibold leading-tight">
               Focused exams, clean roles, fewer moving parts.
             </h1>
             <p className="mt-6 max-w-lg text-base leading-7 text-[#dce7df]">
-              Teachers create and manage exams, students sit for them, and
-              admins keep the whole workspace visible.
+              Teachers create and manage exams, while students sit for them in a focused environment.
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 text-sm text-[#dce7df]">
-            {["Students", "Teachers", "Admins"].map((label) => (
+          <div className="grid grid-cols-2 gap-3 text-sm text-[#dce7df]">
+            {["Students", "Teachers"].map((label) => (
               <div
                 key={label}
                 className="border border-white/15 bg-white/5 px-4 py-3"

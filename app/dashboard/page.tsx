@@ -51,8 +51,8 @@ export default async function DashboardPage() {
         <section className="mt-6 rounded-lg border border-[#d8dfda] bg-white p-6">
           <h2 className="text-xl font-semibold">You are signed in</h2>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[#607066]">
-            This is a protected starter dashboard. Future student, teacher, and
-            admin workflows can branch from this authenticated area.
+            This is a protected starter dashboard. Future student and teacher
+            workflows can branch from this authenticated area.
           </p>
         </section>
       </div>
