@@ -3,8 +3,6 @@ import { NextResponse } from "next/server";
 import { isPublicSignupRole } from "@/lib/roles";
 import { getSiteUrl } from "@/lib/site-url";
 import { createAuthClient } from "@/lib/supabase/auth-client";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { upsertUserProfile } from "@/lib/supabase/users";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
@@ -45,12 +43,20 @@ export async function POST(request: Request) {
     );
   }
 
+  // The database trigger 'sync_auth_user_profile' will automatically:
+  // 1. Create the user profile in 'public.users'
+  // 2. Assign the 'role' if it were in 'raw_app_meta_data'
+  // However, signUp() options.data only sets 'raw_user_meta_data'.
+  // We'll update the user's app_metadata via the admin client to set the role,
+  // but we'll do it in a way that the trigger handles the sync.
+  
+  const { createAdminClient } = await import("@/lib/supabase/admin");
   const admin = createAdminClient();
+  
   const { error: roleError } = await admin.auth.admin.updateUserById(
     data.user.id,
     {
       app_metadata: {
-        ...data.user.app_metadata,
         role,
       },
     },
@@ -59,26 +65,7 @@ export async function POST(request: Request) {
   if (roleError) {
     console.error("Role assignment error:", roleError);
     return NextResponse.json(
-      { error: `Account created, but role assignment failed: ${roleError.message}` },
-      { status: 500 },
-    );
-  }
-
-  const { data: updatedUser, error: getUserError } =
-    await admin.auth.admin.getUserById(data.user.id);
-
-  if (getUserError || !updatedUser.user) {
-    return NextResponse.json(
-      { error: "Account created, but profile setup failed." },
-      { status: 500 },
-    );
-  }
-
-  const { error: profileError } = await upsertUserProfile(updatedUser.user, role);
-
-  if (profileError) {
-    return NextResponse.json(
-      { error: "Account created, but profile setup failed." },
+      { error: "Account created, but role assignment failed." },
       { status: 500 },
     );
   }
