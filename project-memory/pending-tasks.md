@@ -6,6 +6,7 @@
 - In Supabase Auth settings, add production and local `/auth/callback` redirect URLs.
 - Create the first real admin using `/api/admin/bootstrap`, then remove or rotate `ADMIN_SETUP_TOKEN`.
 - Decide whether to delete or archive legacy AI seed users in `public.users`.
+- Optional security upgrade: move the Supabase organization to Pro or higher to enable leaked-password protection.
 
 ---
 

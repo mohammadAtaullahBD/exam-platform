@@ -2,6 +2,25 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-24: Auth Security Advisor Follow-up (Codex)
+
+### [x] Successes
+- Restored hosted Supabase Auth settings in `supabase/config.toml` after local CLI defaults were detected.
+- Pushed the corrected Auth config back to the linked Supabase project:
+  - Production site URL restored to `https://exam.ataullah.dev/`.
+  - Production auth callback redirect restored.
+  - Email confirmation restored.
+  - Email OTP length restored to 8 digits.
+  - TOTP MFA enrollment/verification restored.
+  - Minimum password length raised to 8.
+
+### [!] Failures/Blockers
+- Leaked password protection could not be enabled because Supabase returned: "Configuring leaked password protection via HaveIBeenPwned.org is available on Pro Plans and up." The project organization is currently on the Free plan.
+
+### [>] Next Steps
+- Upgrade the Supabase organization to Pro or higher if leaked-password protection is required.
+- Move forward with Phase 2, item 3: Groups.
+
 ## 2026-05-24: Live Database Profile Alignment (Codex)
 
 ### [+] Features & Improvements

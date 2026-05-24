@@ -29,6 +29,10 @@
   - Profile/post RLS policies were verified and duplicate legacy policies were simplified.
   - Supabase advisors report no remaining profile/posts schema or RLS warnings.
   - `types/database.ts` was regenerated and includes `users.bio` and `posts`.
+- Hosted Supabase Auth config restored after local CLI defaults were detected:
+  - Production site URL and auth callback redirect are restored.
+  - Email confirmations, 8-digit email OTPs, and TOTP MFA are restored.
+  - Minimum password length is now 8.
 
 ## Verified
 
@@ -53,4 +57,6 @@
 
 The in-app browser successfully opened `/profile` during the profiles pass and confirmed the unauthenticated sign-in redirect without an application error. HTTP smoke checks were also used for protected profile routes.
 
-Supabase type generation succeeded after CLI login and created `types/database.ts`. The linked Supabase database was later aligned with `users.bio` and `posts`, types were regenerated again, and RLS/policy verification succeeded after temporary Supabase pooler `ECIRCUITBREAKER` noise. Supabase advisors still warn that leaked password protection is disabled at the Auth project setting level.
+Supabase type generation succeeded after CLI login and created `types/database.ts`. The linked Supabase database was later aligned with `users.bio` and `posts`, types were regenerated again, and RLS/policy verification succeeded after temporary Supabase pooler `ECIRCUITBREAKER` noise.
+
+Supabase leaked-password protection could not be enabled on the current Free plan. Supabase requires Pro or higher for HaveIBeenPwned leaked-password checks.
