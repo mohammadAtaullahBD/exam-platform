@@ -32,3 +32,11 @@ Roles are `student`, `teacher`, and `admin`.
 The first admin is created with `/api/admin/bootstrap`, guarded by `ADMIN_SETUP_TOKEN`, and only if no Supabase Auth user already has `app_metadata.role = admin`.
 
 After that, admins use `/api/admin/users/[userId]/role` to promote/demote users.
+
+## Question Bank Shape
+
+Teacher question bank items live in `public.questions`.
+
+- Options are stored as a validated JSONB array of strings so exam-building can keep the answer set together without a separate option table.
+- `correct_answer` stores the matching option text for now; future exam submissions should compare against the stored question snapshot or the row value used when the exam is assembled.
+- `source` is `teacher` or `admin`; teacher-created rows use `teacher`, while `original_id` is reserved for future copies of admin-authored questions.

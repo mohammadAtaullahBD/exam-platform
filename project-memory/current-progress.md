@@ -40,6 +40,11 @@
   - `/join/[token]` lets students join a group from an invite link through a Server Action.
   - `features/groups/` contains the group actions, queries, types, and components.
   - `types/database.ts` was regenerated and includes `groups` and `group_members`.
+- Phase 2 questions implemented:
+  - `public.questions` exists with teacher/admin source tracking, JSONB answer options, answer validation, timestamps, FK indexes, and RLS.
+  - `/questions` lets teachers create, edit, delete, search, and filter their question bank.
+  - `features/questions/` contains the question actions, queries, types, and components.
+  - `types/database.ts` was regenerated and includes `questions`.
 
 ## Verified
 
@@ -62,6 +67,7 @@
   - `/groups` redirects unauthenticated users to sign-in.
   - `/student/groups` redirects unauthenticated users to sign-in.
   - `/join/[token]` redirects unauthenticated users to sign-in.
+  - `/questions` redirects unauthenticated users to sign-in.
 
 ## Note
 
@@ -72,3 +78,5 @@ Supabase type generation succeeded after CLI login and created `types/database.t
 Supabase leaked-password protection could not be enabled on the current Free plan. Supabase requires Pro or higher for HaveIBeenPwned leaked-password checks.
 
 Browser automation was not exposed as a callable tool during the Groups pass, so HTTP smoke checks were used for the new protected routes.
+
+The Questions migration was applied with `supabase db query` and then marked applied with `supabase migration repair` because `supabase db push --linked` is still blocked by the older remote-only migration `20260522180510`. Supabase advisor and migration-list follow-up checks later hit the same temporary pooler `ECIRCUITBREAKER` authentication block seen in earlier work.

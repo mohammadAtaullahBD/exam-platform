@@ -114,6 +114,57 @@ export type Database = {
           },
         ]
       }
+      questions: {
+        Row: {
+          author_id: string
+          content: string
+          correct_answer: string
+          created_at: string
+          id: string
+          options: Json
+          original_id: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          correct_answer: string
+          created_at?: string
+          id?: string
+          options: Json
+          original_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          correct_answer?: string
+          created_at?: string
+          id?: string
+          options?: Json
+          original_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_original_id_fkey"
+            columns: ["original_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           bio: string | null

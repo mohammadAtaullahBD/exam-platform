@@ -7,6 +7,7 @@
 - `public.posts`: teacher public text posts. Stores `id`, `teacher_id`, `content`, and `created_at`.
 - `public.groups`: private teacher groups. Stores `id`, `teacher_id`, `name`, optional `description`, `invite_token`, and timestamps.
 - `public.group_members`: student memberships for private groups. Stores `group_id`, `student_id`, and `joined_at`.
+- `public.questions`: teacher/admin-authored question bank. Stores `id`, `author_id`, `content`, JSONB `options`, `correct_answer`, `source`, optional `original_id`, and timestamps.
 
 ## Important Split
 
@@ -45,6 +46,15 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Adds private RLS helper functions for group teacher/member checks to avoid recursive policy lookups.
 - Enables RLS and adds policies for teacher group CRUD, student membership reads, and membership management.
 
+`supabase/migrations/20260524162029_questions.sql` implements Phase 2 Questions:
+
+- Adds `public.questions` with `author_id` referencing `public.users(id)`.
+- Stores answer choices as a validated JSONB array of 2 to 6 unique, non-blank strings.
+- Stores `correct_answer` as text and validates that it matches one of the options.
+- Tracks `source` as `teacher` or `admin`, with optional `original_id` for copied admin questions later.
+- Adds FK/source lookup indexes and `updated_at` maintenance.
+- Enables RLS and adds policies so teachers can manage their own teacher-sourced questions while admins retain super-user access.
+
 ## RLS Requirements
 
 - Enable RLS on all public tables.
@@ -52,3 +62,4 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Students and teachers should access only their own future exam data unless a later schema explicitly grants more.
 - Admins can manage app users through trusted server routes.
 - Group invite token lookup and membership insertion happen in server actions; client components never call Supabase directly.
+- Question mutations happen through server actions; client components do not call Supabase directly.

@@ -32,7 +32,7 @@
 - Routes: `app/(teacher)/groups/`.
 - Feature slice: `features/groups/`.
 
-**4. questions**
+**4. questions (complete)**
 - Teacher question bank CRUD (text-only questions with options and correct answer).
 - Teacher dashboard lists all their questions with search and filter.
 - Routes: `app/(teacher)/questions/`.

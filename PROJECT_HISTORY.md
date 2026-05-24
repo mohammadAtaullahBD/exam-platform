@@ -2,6 +2,35 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-24: Phase 2 Item 4 Questions (Codex)
+
+### [+] Features & Improvements
+- Added migration `20260524162029_questions.sql`.
+- Added `public.questions` with teacher/admin source tracking, JSONB options, answer validation, FK indexes, timestamps, and RLS policies.
+- Added teacher `/questions` page for question bank CRUD.
+- Added search and source filtering for the teacher question dashboard.
+- Added `features/questions/` with separate actions, queries, types, and components.
+- Added Zod validation in `lib/validations/question.ts`.
+- Updated the dashboard to link teachers to their question bank.
+- Regenerated `types/database.ts` from the linked Supabase schema.
+
+### [x] Successes
+- Applied the Questions migration to the linked Supabase project through `supabase db query`.
+- Marked migration `20260524162029` as applied in remote migration history after `db push` was blocked by the existing missing remote migration `20260522180510`.
+- Verified `npm run check` passes.
+- Smoke-checked the new protected `/questions` route locally:
+  - `/questions` redirects unauthenticated users to `/signin?callbackUrl=%2Fquestions`.
+  - The in-app browser opens `/questions` and lands on the sign-in page without an application error.
+
+### [!] Failures/Blockers
+- `supabase db push --linked` is still blocked by the pre-existing remote-only migration `20260522180510`.
+- Supabase migration-list/advisor follow-up checks hit the pooler `ECIRCUITBREAKER` temporary authentication block after the migration and type generation succeeded.
+- Supabase leaked-password protection remains disabled on the Free plan and is unrelated to the Questions schema.
+
+### [>] Next Steps
+- Move forward with Phase 2, item 5: Exams.
+- Re-run Supabase advisors after the pooler circuit breaker clears.
+
 ## 2026-05-24: Phase 2 Item 3 Groups (Codex)
 
 ### [+] Features & Improvements

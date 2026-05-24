@@ -29,12 +29,20 @@ export default async function DashboardPage() {
           </div>
           <div className="flex items-center gap-2">
             {profile.role === "teacher" ? (
-              <Link
-                className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
-                href="/groups"
-              >
-                Groups
-              </Link>
+              <>
+                <Link
+                  className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                  href="/groups"
+                >
+                  Groups
+                </Link>
+                <Link
+                  className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                  href="/questions"
+                >
+                  Questions
+                </Link>
+              </>
             ) : null}
             {profile.role === "student" ? (
               <Link
