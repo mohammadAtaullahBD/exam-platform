@@ -5,6 +5,8 @@
 - `auth.users`: managed by Supabase Auth. Stores credentials, email verification state, identities, and trusted `raw_app_meta_data`.
 - `public.users`: application profile table. Stores app-facing user fields only: `id`, `email`, `name`, `bio`, `role`, timestamps, and the legacy `password_hash` column.
 - `public.posts`: teacher public text posts. Stores `id`, `teacher_id`, `content`, and `created_at`.
+- `public.groups`: private teacher groups. Stores `id`, `teacher_id`, `name`, optional `description`, `invite_token`, and timestamps.
+- `public.group_members`: student memberships for private groups. Stores `group_id`, `student_id`, and `joined_at`.
 
 ## Important Split
 
@@ -35,9 +37,18 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Adds an index for teacher post lookups by teacher and newest-first creation time.
 - Enables RLS and adds policies for authenticated teacher profile/post visibility and own profile updates.
 
+`supabase/migrations/20260524131436_groups.sql` implements Phase 2 Groups:
+
+- Adds `public.groups` with a teacher FK, private invite token, description, and timestamps.
+- Adds `public.group_members` with a composite primary key over `group_id` and `student_id`.
+- Indexes every FK column used by group lookups.
+- Adds private RLS helper functions for group teacher/member checks to avoid recursive policy lookups.
+- Enables RLS and adds policies for teacher group CRUD, student membership reads, and membership management.
+
 ## RLS Requirements
 
 - Enable RLS on all public tables.
 - Use trusted `app_metadata.role` for admin authorization, never user-editable metadata.
 - Students and teachers should access only their own future exam data unless a later schema explicitly grants more.
 - Admins can manage app users through trusted server routes.
+- Group invite token lookup and membership insertion happen in server actions; client components never call Supabase directly.

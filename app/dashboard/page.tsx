@@ -28,6 +28,22 @@ export default async function DashboardPage() {
             <h1 className="mt-2 text-3xl font-semibold">Welcome dashboard</h1>
           </div>
           <div className="flex items-center gap-2">
+            {profile.role === "teacher" ? (
+              <Link
+                className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                href="/groups"
+              >
+                Groups
+              </Link>
+            ) : null}
+            {profile.role === "student" ? (
+              <Link
+                className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                href="/student/groups"
+              >
+                Groups
+              </Link>
+            ) : null}
             <Link
               className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
               href="/profile"

@@ -2,6 +2,36 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-24: Phase 2 Item 3 Groups (Codex)
+
+### [+] Features & Improvements
+- Added migration `20260524131436_groups.sql`.
+- Added `public.groups` and `public.group_members` with invite tokens, FK indexes, timestamps, and RLS policies.
+- Added teacher `/groups` page for creating, renaming, deleting, and sharing invite links for private groups.
+- Added student `/student/groups` page for joined groups.
+- Added `/join/[token]` invite flow so students can join groups through Server Actions.
+- Added `features/groups/` with separate actions, queries, types, and components.
+- Added Zod validation in `lib/validations/group.ts`.
+- Updated the dashboard to link teachers and students to their group workspace.
+- Regenerated `types/database.ts` from the linked Supabase schema.
+
+### [x] Successes
+- Applied the Groups migration to the linked Supabase project.
+- Marked migration `20260524131436` as applied in remote migration history.
+- Verified Supabase advisors report no new Groups schema or RLS warnings.
+- Verified `npm run check` passes.
+- Smoke-checked the new protected group routes locally:
+  - `/groups` redirects unauthenticated users to sign-in.
+  - `/student/groups` redirects unauthenticated users to sign-in.
+  - `/join/[token]` redirects unauthenticated users to sign-in.
+
+### [!] Failures/Blockers
+- Supabase advisors still report project-level leaked password protection is disabled. This remains blocked by the current Free plan and is unrelated to the Groups schema.
+- Browser automation was not exposed as a callable tool in this session, so local route smoke checks used HTTP requests instead.
+
+### [>] Next Steps
+- Move forward with Phase 2, item 4: Questions.
+
 ## 2026-05-24: Auth Security Advisor Follow-up (Codex)
 
 ### [x] Successes

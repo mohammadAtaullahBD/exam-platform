@@ -25,7 +25,7 @@
 
 ## Phase 2 — Teacher Core
 
-**3. groups**
+**3. groups (complete)**
 - Teacher can create, rename, and delete private groups (e.g. "Class 9", "Alpha").
 - Teacher can generate an invite link per group.
 - Student follows invite link to join a group.

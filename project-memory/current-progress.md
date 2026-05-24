@@ -33,6 +33,13 @@
   - Production site URL and auth callback redirect are restored.
   - Email confirmations, 8-digit email OTPs, and TOTP MFA are restored.
   - Minimum password length is now 8.
+- Phase 2 groups implemented:
+  - `public.groups` and `public.group_members` exist with invite tokens, FK indexes, timestamps, and RLS.
+  - `/groups` lets teachers create, rename, delete, and share private group invite links.
+  - `/student/groups` lists groups a student has joined.
+  - `/join/[token]` lets students join a group from an invite link through a Server Action.
+  - `features/groups/` contains the group actions, queries, types, and components.
+  - `types/database.ts` was regenerated and includes `groups` and `group_members`.
 
 ## Verified
 
@@ -52,6 +59,9 @@
   - `/profile/edit` redirects unauthenticated users to `/signin?callbackUrl=%2Fprofile%2Fedit`.
   - `/student/profile` redirects unauthenticated users to sign-in.
   - `/teacher/[id]` redirects unauthenticated users to sign-in.
+  - `/groups` redirects unauthenticated users to sign-in.
+  - `/student/groups` redirects unauthenticated users to sign-in.
+  - `/join/[token]` redirects unauthenticated users to sign-in.
 
 ## Note
 
@@ -60,3 +70,5 @@ The in-app browser successfully opened `/profile` during the profiles pass and c
 Supabase type generation succeeded after CLI login and created `types/database.ts`. The linked Supabase database was later aligned with `users.bio` and `posts`, types were regenerated again, and RLS/policy verification succeeded after temporary Supabase pooler `ECIRCUITBREAKER` noise.
 
 Supabase leaked-password protection could not be enabled on the current Free plan. Supabase requires Pro or higher for HaveIBeenPwned leaked-password checks.
+
+Browser automation was not exposed as a callable tool during the Groups pass, so HTTP smoke checks were used for the new protected routes.
