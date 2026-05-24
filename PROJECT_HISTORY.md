@@ -20,12 +20,13 @@ This file tracks the evolution of the Exam Platform, serving as a shared memory 
 - Smoke-checked protected profile routes locally; unauthenticated access redirects to sign-in.
 
 ### [!] Failures/Blockers
-- `supabase gen types --project-id ... --schema public,auth --lang typescript` could not complete because no Supabase access token was available in the environment. `types/database.ts` was not generated.
+- `supabase gen types` initially could not complete because no Supabase access token was available in the environment. After CLI login, `types/database.ts` was generated successfully.
+- Generated types show the linked Supabase `public` schema currently has `users.name` but does not expose `users.bio` or a `posts` table. The live database should be brought in line with the documented Phase 1/Posts assumptions before manually testing profile bio saves or teacher post lists against Supabase.
 - Next.js route groups cannot define both `app/(teacher)/profile/page.tsx` and `app/(student)/profile/page.tsx` because both resolve to `/profile`. The implementation uses a single role-aware `/profile` route and separate `/student/profile` companion routes to keep the build valid.
 
 ### [>] Next Steps
 - Phase 2, item 3: implement Groups.
-- Re-run Supabase type generation after logging in with `supabase login` or setting `SUPABASE_ACCESS_TOKEN`.
+- Apply or add the missing database updates for profile `bio` and teacher `posts` if they are absent in the target Supabase project.
 
 ## 📅 2026-05-20: Architecture & Agent Framework Refactor (Manus)
 

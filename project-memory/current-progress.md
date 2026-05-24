@@ -46,4 +46,4 @@
 
 The in-app browser successfully opened `/profile` during the profiles pass and confirmed the unauthenticated sign-in redirect without an application error. HTTP smoke checks were also used for protected profile routes.
 
-Supabase type generation was attempted with the CLI, but it failed because no Supabase access token was available in the environment.
+Supabase type generation succeeded after CLI login and created `types/database.ts`. The generated public schema currently lacks `users.bio` and a `posts` table, so the target Supabase schema still needs to be aligned before profile bio updates and teacher post lists can be fully exercised against the live database.
