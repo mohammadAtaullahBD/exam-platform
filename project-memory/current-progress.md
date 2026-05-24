@@ -17,12 +17,18 @@
 - First-admin bootstrap and admin role-promotion APIs added.
 - Current real Supabase Auth user was backfilled into `public.users`.
 - Auth/profile migration SQL added under `supabase/migrations/`.
+- Phase 1 profiles implemented:
+  - `/profile` renders the signed-in teacher or student profile based on trusted role.
+  - `/teacher/[id]` renders an authenticated public teacher profile with public posts and an empty state.
+  - `/profile/edit` updates `public.users.name` and `public.users.bio` through a Server Action.
+  - `/student/profile` and `/student/profile/edit` exist as student-specific companion routes because route groups cannot duplicate `/profile`.
 
 ## Verified
 
 - `npm run lint`
 - `npm run typecheck`
 - `npm run build`
+- `npm run check`
 - HTTP smoke checks:
   - `/` returns 200.
   - `/dashboard` redirects unauthenticated users to `/signin?callbackUrl=%2Fdashboard`.
@@ -31,7 +37,13 @@
   - `/api/health` returns 200.
   - invalid signup returns 400.
   - bootstrap without `ADMIN_SETUP_TOKEN` returns 503.
+  - `/profile` redirects unauthenticated users to `/signin?callbackUrl=%2Fprofile`.
+  - `/profile/edit` redirects unauthenticated users to `/signin?callbackUrl=%2Fprofile%2Fedit`.
+  - `/student/profile` redirects unauthenticated users to sign-in.
+  - `/teacher/[id]` redirects unauthenticated users to sign-in.
 
 ## Note
 
-The in-app browser could not open local URLs in this session because the browser reported `ERR_BLOCKED_BY_CLIENT`; HTTP smoke checks were used instead.
+The in-app browser successfully opened `/profile` during the profiles pass and confirmed the unauthenticated sign-in redirect without an application error. HTTP smoke checks were also used for protected profile routes.
+
+Supabase type generation was attempted with the CLI, but it failed because no Supabase access token was available in the environment.

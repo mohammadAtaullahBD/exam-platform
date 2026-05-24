@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 import { profileFromAuthUser, upsertUserProfile } from "@/lib/supabase/users";
 import { createClient } from "@/lib/supabase/server";
@@ -26,7 +27,15 @@ export default async function DashboardPage() {
             </p>
             <h1 className="mt-2 text-3xl font-semibold">Welcome dashboard</h1>
           </div>
-          <LogoutButton />
+          <div className="flex items-center gap-2">
+            <Link
+              className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+              href="/profile"
+            >
+              Profile
+            </Link>
+            <LogoutButton />
+          </div>
         </header>
 
         <section className="mt-8 grid gap-4 sm:grid-cols-3">
