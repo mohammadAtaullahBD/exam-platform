@@ -2,6 +2,25 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-24: Questions Create Permission Fix (Codex)
+
+### [+] Features & Improvements
+- Added migration `20260524171724_grant_question_validation_helpers.sql`.
+- Added server-side logging for question mutation failures so future database errors are diagnosable from local logs.
+
+### [x] Successes
+- Fixed teacher question creation by granting authenticated users access to the private validation helper functions used by `public.questions` check constraints.
+- Applied the grant SQL in Supabase Studio because CLI connections were temporarily blocked by the Supabase pooler circuit breaker.
+- Marked migration `20260524171724` as applied in remote migration history.
+- Verified the real `/questions` form creates a question successfully in Chrome.
+- Deleted the temporary verification question afterward, returning the question bank to 0 test rows.
+
+### [!] Failures/Blockers
+- `npx supabase db query --linked` still hit `ECIRCUITBREAKER` during the first apply attempt, so Supabase Studio was used for the remote SQL.
+
+### [>] Next Steps
+- Continue with Phase 2, item 5: Exams.
+
 ## 2026-05-24: Phase 2 Item 4 Questions (Codex)
 
 ### [+] Features & Improvements

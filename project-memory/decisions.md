@@ -40,3 +40,4 @@ Teacher question bank items live in `public.questions`.
 - Options are stored as a validated JSONB array of strings so exam-building can keep the answer set together without a separate option table.
 - `correct_answer` stores the matching option text for now; future exam submissions should compare against the stored question snapshot or the row value used when the exam is assembled.
 - `source` is `teacher` or `admin`; teacher-created rows use `teacher`, while `original_id` is reserved for future copies of admin-authored questions.
+- Validation helpers stay in the private schema, with explicit authenticated grants, because the table check constraints need to execute them during teacher writes.

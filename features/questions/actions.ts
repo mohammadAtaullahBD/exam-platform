@@ -70,9 +70,17 @@ export async function createQuestion(
   });
 
   if (error) {
+    console.error("Create question failed", {
+      code: error.code,
+      message: error.message,
+    });
+
     return {
       status: "error",
-      message: "Question could not be created. Please try again.",
+      message:
+        error.code === "42501"
+          ? "Question permissions are not ready. Please refresh and try again."
+          : "Question could not be created. Please try again.",
     };
   }
 
@@ -110,9 +118,17 @@ export async function updateQuestion(
     .single();
 
   if (error) {
+    console.error("Update question failed", {
+      code: error.code,
+      message: error.message,
+    });
+
     return {
       status: "error",
-      message: "Question could not be updated. Please try again.",
+      message:
+        error.code === "42501"
+          ? "Question permissions are not ready. Please refresh and try again."
+          : "Question could not be updated. Please try again.",
     };
   }
 
@@ -138,6 +154,11 @@ export async function deleteQuestion(
     .eq("author_id", user.id);
 
   if (error) {
+    console.error("Delete question failed", {
+      code: error.code,
+      message: error.message,
+    });
+
     return {
       status: "error",
       message: "Question could not be deleted. Please try again.",

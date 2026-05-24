@@ -55,6 +55,11 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Adds FK/source lookup indexes and `updated_at` maintenance.
 - Enables RLS and adds policies so teachers can manage their own teacher-sourced questions while admins retain super-user access.
 
+`supabase/migrations/20260524171724_grant_question_validation_helpers.sql` fixes question inserts:
+
+- Grants authenticated users `USAGE` on the private schema and `EXECUTE` on the two private question validation helpers.
+- This is required because `public.questions` check constraints call those helper functions during authenticated inserts and updates.
+
 ## RLS Requirements
 
 - Enable RLS on all public tables.
