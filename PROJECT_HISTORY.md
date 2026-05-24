@@ -2,6 +2,33 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-24: Live Database Profile Alignment (Codex)
+
+### [+] Features & Improvements
+- Added migration `20260524112618_align_profiles_posts_schema.sql`.
+- Aligned the linked Supabase database with the profiles feature by adding `public.users.bio`.
+- Created `public.posts` for teacher public text posts with a teacher foreign key and indexed teacher/date lookup.
+- Added RLS policies for own-profile reads/updates, authenticated teacher profile reads, and authenticated teacher post reads.
+- Regenerated `types/database.ts` from the linked Supabase schema.
+
+### [x] Successes
+- Applied the alignment SQL to the linked Supabase project.
+- Marked migration `20260524112618` as applied in remote migration history.
+- Verified the live column list shows `users.bio` and the `posts` table.
+- Verified RLS is enabled on `public.users` and `public.posts`.
+- Verified profile/post policies are present in `pg_policies`, then simplified duplicate legacy policies.
+- Verified Supabase database advisors report no remaining profile/posts schema or RLS warnings.
+- Verified generated types now include `public.users.bio` and `public.posts`.
+- Verified `npm run check` passes.
+
+### [!] Failures/Blockers
+- Supabase pooler temporarily returned `ECIRCUITBREAKER` after repeated CLI authentication attempts, but later verification queries succeeded.
+- Supabase advisors still report project-level leaked password protection is disabled; this is an Auth setting outside the profile schema alignment.
+- Older migration history is still not fully aligned with local migration files: local has `20260512180000`, while remote reports `20260522180510`. The new profile alignment migration is aligned locally and remotely.
+
+### [>] Next Steps
+- Phase 2, item 3: implement Groups.
+
 ## 2026-05-24: Phase 1 Item 2 Profiles (Codex)
 
 ### [+] Features & Improvements

@@ -14,33 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      posts: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          teacher_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          teacher_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
-          created_at: string | null
+          bio: string | null
+          created_at: string
           email: string
           id: string
           name: string | null
-          password_hash: string
+          password_hash: string | null
           role: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
+          bio?: string | null
+          created_at?: string
           email: string
           id?: string
           name?: string | null
-          password_hash: string
+          password_hash?: string | null
           role?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
+          bio?: string | null
+          created_at?: string
           email?: string
           id?: string
           name?: string | null
-          password_hash?: string
+          password_hash?: string | null
           role?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

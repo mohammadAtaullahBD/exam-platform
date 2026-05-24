@@ -22,6 +22,13 @@
   - `/teacher/[id]` renders an authenticated public teacher profile with public posts and an empty state.
   - `/profile/edit` updates `public.users.name` and `public.users.bio` through a Server Action.
   - `/student/profile` and `/student/profile/edit` exist as student-specific companion routes because route groups cannot duplicate `/profile`.
+- Linked Supabase database aligned for profiles:
+  - `public.users.bio` exists.
+  - `public.posts` exists with `teacher_id`, `content`, and `created_at`.
+  - RLS is enabled on `public.users` and `public.posts`.
+  - Profile/post RLS policies were verified and duplicate legacy policies were simplified.
+  - Supabase advisors report no remaining profile/posts schema or RLS warnings.
+  - `types/database.ts` was regenerated and includes `users.bio` and `posts`.
 
 ## Verified
 
@@ -46,4 +53,4 @@
 
 The in-app browser successfully opened `/profile` during the profiles pass and confirmed the unauthenticated sign-in redirect without an application error. HTTP smoke checks were also used for protected profile routes.
 
-Supabase type generation succeeded after CLI login and created `types/database.ts`. The generated public schema currently lacks `users.bio` and a `posts` table, so the target Supabase schema still needs to be aligned before profile bio updates and teacher post lists can be fully exercised against the live database.
+Supabase type generation succeeded after CLI login and created `types/database.ts`. The linked Supabase database was later aligned with `users.bio` and `posts`, types were regenerated again, and RLS/policy verification succeeded after temporary Supabase pooler `ECIRCUITBREAKER` noise. Supabase advisors still warn that leaked password protection is disabled at the Auth project setting level.

@@ -3,7 +3,8 @@
 ## Current Auth Tables
 
 - `auth.users`: managed by Supabase Auth. Stores credentials, email verification state, identities, and trusted `raw_app_meta_data`.
-- `public.users`: application profile table. Stores app-facing user fields only: `id`, `email`, `name`, `role`, timestamps, and the legacy `password_hash` column.
+- `public.users`: application profile table. Stores app-facing user fields only: `id`, `email`, `name`, `bio`, `role`, timestamps, and the legacy `password_hash` column.
+- `public.posts`: teacher public text posts. Stores `id`, `teacher_id`, `content`, and `created_at`.
 
 ## Important Split
 
@@ -16,7 +17,7 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 
 ## Migration
 
-`supabase/migrations/20260512180000_auth_profiles_and_admin.sql` documents the intended production schema:
+`supabase/migrations/20260512180000_auth_profiles_and_admin.sql` documents the intended auth/profile schema:
 
 - Keeps `public.users` as the app profile table.
 - Adds/normalizes `name`, `created_at`, and `updated_at`.
@@ -25,6 +26,14 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Adds a not-yet-validated FK from `public.users.id` to `auth.users.id` so legacy seed rows do not block migration, while new rows are enforced.
 - Adds private trigger helpers to sync Auth user changes into `public.users`.
 - Enables RLS and profile/admin policies.
+
+`supabase/migrations/20260524112618_align_profiles_posts_schema.sql` aligns the linked database for Phase 1 profiles:
+
+- Adds `bio` to `public.users`.
+- Makes profile timestamps non-null with defaults and treats `password_hash` as nullable legacy data.
+- Adds `public.posts` with `teacher_id` referencing `public.users(id)`.
+- Adds an index for teacher post lookups by teacher and newest-first creation time.
+- Enables RLS and adds policies for authenticated teacher profile/post visibility and own profile updates.
 
 ## RLS Requirements
 
