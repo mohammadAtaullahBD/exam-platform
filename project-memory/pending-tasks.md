@@ -38,7 +38,7 @@
 - Routes: `app/(teacher)/questions/`.
 - Feature slice: `features/questions/`.
 
-**5. exams**
+**5. exams (complete)**
 - Teacher creates an exam for a specific group: pick questions, set `starts_at` / `ends_at`.
 - Exam state machine enforced in the database (`scheduled → active → closed`).
 - Supabase Edge Function or pg_cron job closes exams at `ends_at` and triggers merit calculation.
@@ -115,3 +115,4 @@
 - Run `supabase gen types typescript` after every schema change and commit the updated `types/database.ts`.
 - Build an admin UI over `/api/admin/users/[userId]/role`.
 - Add automated tests for signup, verification callback, protected route redirects, logout, and admin promotion.
+- Re-run Supabase security advisors and direct Exams RLS/cron verification queries after the pooler `ECIRCUITBREAKER` clears.

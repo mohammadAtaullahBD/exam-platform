@@ -8,6 +8,8 @@
 - `public.groups`: private teacher groups. Stores `id`, `teacher_id`, `name`, optional `description`, `invite_token`, and timestamps.
 - `public.group_members`: student memberships for private groups. Stores `group_id`, `student_id`, and `joined_at`.
 - `public.questions`: teacher/admin-authored question bank. Stores `id`, `author_id`, `content`, JSONB `options`, `correct_answer`, `source`, optional `original_id`, and timestamps.
+- `public.exams`: scheduled group exams. Stores `id`, `group_id`, `title`, `starts_at`, `ends_at`, optional `closed_at`, and timestamps.
+- `public.exam_questions`: ordered exam question snapshots. Stores `id`, `exam_id`, optional `question_id`, `sort_order`, `snapshot_content`, JSONB `snapshot_options`, `snapshot_correct_answer`, and `created_at`.
 
 ## Important Split
 
@@ -60,6 +62,14 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Grants authenticated users `USAGE` on the private schema and `EXECUTE` on the two private question validation helpers.
 - This is required because `public.questions` check constraints call those helper functions during authenticated inserts and updates.
 
+`supabase/migrations/20260527173105_exams.sql` implements Phase 2 Exams:
+
+- Adds `public.exams` with group scheduling, `closed_at`, FK indexes, timestamps, and time-order constraints.
+- Adds `public.exam_questions` with ordered snapshots of selected question content/options/answers.
+- Adds private helpers for derived exam state, exam teacher/member checks, scheduled-only mutation checks, and closing due exams.
+- Enables RLS and adds policies so teachers can create exams for their own groups, teachers can mutate only scheduled exams, group members can read their exams, and admins remain super-users.
+- Adds a `pg_cron` job named `close-due-exams` to run `private.close_due_exams()` every minute.
+
 ## RLS Requirements
 
 - Enable RLS on all public tables.
@@ -68,3 +78,4 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Admins can manage app users through trusted server routes.
 - Group invite token lookup and membership insertion happen in server actions; client components never call Supabase directly.
 - Question mutations happen through server actions; client components do not call Supabase directly.
+- Exam mutations happen through server actions; client components do not call Supabase directly.

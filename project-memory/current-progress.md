@@ -46,6 +46,13 @@
   - `features/questions/` contains the question actions, queries, types, and components.
   - `types/database.ts` was regenerated and includes `questions`.
   - Follow-up migration `20260524171724_grant_question_validation_helpers.sql` grants authenticated users the private validation helper access needed for question inserts.
+- Phase 2 exams implemented:
+  - `public.exams` and `public.exam_questions` exist with FK indexes, timestamps, RLS, and database-derived scheduled/active/closed state.
+  - Exam questions store snapshots of selected question content, options, and correct answer.
+  - A `pg_cron` job named `close-due-exams` calls `private.close_due_exams()` every minute to stamp ended exams with `closed_at`.
+  - `/exams` lets teachers create group exams from their question bank and list scheduled, active, and closed exams.
+  - `features/exams/` contains exam actions, queries, types, and components.
+  - `types/database.ts` was regenerated and includes `exams` and `exam_questions`.
 
 ## Verified
 
@@ -69,6 +76,7 @@
   - `/student/groups` redirects unauthenticated users to sign-in.
   - `/join/[token]` redirects unauthenticated users to sign-in.
   - `/questions` redirects unauthenticated users to sign-in.
+  - `/exams` redirects unauthenticated users to `/signin?callbackUrl=%2Fexams`.
   - A teacher can create a question through `/questions`; a temporary verification question was deleted afterward.
 
 ## Note
@@ -84,3 +92,5 @@ Browser automation was not exposed as a callable tool during the Groups pass, so
 The Questions migration was applied with `supabase db query` and then marked applied with `supabase migration repair` because `supabase db push --linked` is still blocked by the older remote-only migration `20260522180510`. Supabase advisor and migration-list follow-up checks later hit the same temporary pooler `ECIRCUITBREAKER` authentication block seen in earlier work.
 
 Question creation initially failed because the `public.questions` check constraints called private validation helpers that only `postgres` could execute. The follow-up grant migration was applied in Supabase Studio and marked in remote migration history after the CLI hit `ECIRCUITBREAKER`.
+
+The Exams migration was applied with `supabase db query` and then marked applied with `supabase migration repair`, following the established workflow for this project. Migration list verification and type generation succeeded, and performance advisors reported no warnings. Later security advisor and direct verification queries hit the recurring Supabase pooler `ECIRCUITBREAKER` temporary authentication block.

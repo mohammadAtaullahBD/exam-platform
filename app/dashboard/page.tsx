@@ -42,6 +42,12 @@ export default async function DashboardPage() {
                 >
                   Questions
                 </Link>
+                <Link
+                  className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                  href="/exams"
+                >
+                  Exams
+                </Link>
               </>
             ) : null}
             {profile.role === "student" ? (

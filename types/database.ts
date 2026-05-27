@@ -14,6 +14,95 @@ export type Database = {
   }
   public: {
     Tables: {
+      exam_questions: {
+        Row: {
+          created_at: string
+          exam_id: string
+          id: string
+          question_id: string | null
+          snapshot_content: string
+          snapshot_correct_answer: string
+          snapshot_options: Json
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          exam_id: string
+          id?: string
+          question_id?: string | null
+          snapshot_content: string
+          snapshot_correct_answer: string
+          snapshot_options: Json
+          sort_order: number
+        }
+        Update: {
+          created_at?: string
+          exam_id?: string
+          id?: string
+          question_id?: string | null
+          snapshot_content?: string
+          snapshot_correct_answer?: string
+          snapshot_options?: Json
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exams: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          ends_at: string
+          group_id: string
+          id: string
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          ends_at: string
+          group_id: string
+          id?: string
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          ends_at?: string
+          group_id?: string
+          id?: string
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exams_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_members: {
         Row: {
           group_id: string

@@ -2,6 +2,36 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-27: Phase 2 Item 5 Exams (Codex)
+
+### [+] Features & Improvements
+- Added migration `20260527173105_exams.sql`.
+- Added `public.exams` and `public.exam_questions` with database-derived scheduled/active/closed state.
+- Added question snapshots on `exam_questions` so assembled exams stay stable after later question-bank edits.
+- Added RLS policies for teacher-managed exams, group-member reads, and scheduled-only teacher mutations.
+- Added `private.close_due_exams()` plus a `pg_cron` job named `close-due-exams`.
+- Added teacher `/exams` page for creating exams from groups/questions and listing scheduled, active, and closed exams.
+- Added `features/exams/` with actions, queries, types, and components.
+- Added Zod validation in `lib/validations/exam.ts`.
+- Updated the dashboard to link teachers to Exams.
+- Regenerated `types/database.ts` from the linked Supabase schema.
+
+### [x] Successes
+- Applied the Exams migration to the linked Supabase project through `supabase db query`.
+- Marked migration `20260527173105` as applied in remote migration history.
+- Verified remote migration list shows the Exams migration aligned locally and remotely.
+- Verified `npm run check` passes.
+- Smoke-checked `/exams` locally in the in-app browser:
+  - `/exams` redirects unauthenticated users to `/signin?callbackUrl=%2Fexams`.
+
+### [!] Failures/Blockers
+- Follow-up remote RLS/cron verification queries and the security advisor were blocked by the Supabase pooler `ECIRCUITBREAKER` temporary authentication block after the migration, migration-list check, type generation, and performance advisor succeeded.
+- Supabase performance advisors reported no warnings for the new schema before the pooler block.
+
+### [>] Next Steps
+- Re-run Supabase security advisors and direct verification queries after the pooler circuit breaker clears.
+- Move forward with Phase 3, item 6: exam-taking.
+
 ## 2026-05-24: Questions Create Permission Fix (Codex)
 
 ### [+] Features & Improvements

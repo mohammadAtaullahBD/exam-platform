@@ -41,3 +41,11 @@ Teacher question bank items live in `public.questions`.
 - `correct_answer` stores the matching option text for now; future exam submissions should compare against the stored question snapshot or the row value used when the exam is assembled.
 - `source` is `teacher` or `admin`; teacher-created rows use `teacher`, while `original_id` is reserved for future copies of admin-authored questions.
 - Validation helpers stay in the private schema, with explicit authenticated grants, because the table check constraints need to execute them during teacher writes.
+
+## Exam Snapshots
+
+Teacher-created exams live in `public.exams`, with ordered question rows in `public.exam_questions`.
+
+- Exam state is derived from `starts_at` and `ends_at` using database time; teachers can mutate only scheduled exams.
+- `exam_questions` snapshots selected question content, options, and correct answer so later question-bank edits do not rewrite an already assembled exam.
+- A `closed_at` timestamp and `private.close_due_exams()` exist for future merit-list processing, while visible state remains derived from the schedule.
