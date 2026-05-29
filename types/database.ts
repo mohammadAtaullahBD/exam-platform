@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          post_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          post_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          post_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exam_questions: {
         Row: {
           created_at: string
@@ -203,6 +245,189 @@ export type Database = {
           },
         ]
       }
+      public_exam_attempt_answers: {
+        Row: {
+          answer: string
+          attempt_id: string
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string | null
+          set_question_id: string
+        }
+        Insert: {
+          answer: string
+          attempt_id: string
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string | null
+          set_question_id: string
+        }
+        Update: {
+          answer?: string
+          attempt_id?: string
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string | null
+          set_question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_exam_attempt_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "public_exam_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_exam_attempt_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_exam_attempt_answers_set_question_id_fkey"
+            columns: ["set_question_id"]
+            isOneToOne: false
+            referencedRelation: "public_exam_set_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_exam_attempts: {
+        Row: {
+          created_at: string
+          id: string
+          score: number
+          set_id: string
+          student_id: string
+          submitted_at: string
+          total_questions: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          score?: number
+          set_id: string
+          student_id: string
+          submitted_at?: string
+          total_questions?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          score?: number
+          set_id?: string
+          student_id?: string
+          submitted_at?: string
+          total_questions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_exam_attempts_set_id_fkey"
+            columns: ["set_id"]
+            isOneToOne: false
+            referencedRelation: "public_exam_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_exam_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_exam_set_questions: {
+        Row: {
+          created_at: string
+          id: string
+          question_id: string | null
+          set_id: string
+          snapshot_content: string
+          snapshot_correct_answer: string
+          snapshot_options: Json
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_id?: string | null
+          set_id: string
+          snapshot_content: string
+          snapshot_correct_answer: string
+          snapshot_options: Json
+          sort_order: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_id?: string | null
+          set_id?: string
+          snapshot_content?: string
+          snapshot_correct_answer?: string
+          snapshot_options?: Json
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_exam_set_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_exam_set_questions_set_id_fkey"
+            columns: ["set_id"]
+            isOneToOne: false
+            referencedRelation: "public_exam_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_exam_sets: {
+        Row: {
+          admin_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_published: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_exam_sets_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       questions: {
         Row: {
           author_id: string
@@ -250,6 +475,142 @@ export type Database = {
             columns: ["original_id"]
             isOneToOne: false
             referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reactions: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      submission_answers: {
+        Row: {
+          answer: string
+          created_at: string
+          exam_question_id: string
+          id: string
+          is_correct: boolean
+          question_id: string | null
+          submission_id: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          exam_question_id: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string | null
+          submission_id: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          exam_question_id?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string | null
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_answers_exam_question_id_fkey"
+            columns: ["exam_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submission_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submission_answers_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      submissions: {
+        Row: {
+          created_at: string
+          exam_id: string
+          id: string
+          score: number
+          student_id: string
+          submitted_at: string
+          total_questions: number
+        }
+        Insert: {
+          created_at?: string
+          exam_id: string
+          id?: string
+          score?: number
+          student_id: string
+          submitted_at?: string
+          total_questions?: number
+        }
+        Update: {
+          created_at?: string
+          exam_id?: string
+          id?: string
+          score?: number
+          student_id?: string
+          submitted_at?: string
+          total_questions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submissions_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submissions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
