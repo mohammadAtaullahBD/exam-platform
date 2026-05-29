@@ -2,6 +2,30 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-29: Track A Cleanup and Verification (Codex)
+
+### [+] Documentation & Config
+- Marked Phase 1 Profiles complete in `project-memory/pending-tasks.md`.
+- Converted stale Immediate Setup items into an honest status matrix with live-only blockers called out.
+- Removed duplicate `SUPABASE_URL` and `SUPABASE_ANON_KEY` requirements from README/deployment docs.
+- Added local `http://localhost:3000/auth/callback` to `supabase/config.toml`.
+- Disabled the missing local seed file reference in `supabase/config.toml`.
+
+### [x] Successes
+- Confirmed Phase 1 Profiles are implemented through `/profile`, `/profile/edit`, `/teacher/[id]`, `/student/profile`, and `/student/profile/edit`.
+- Confirmed generated database types include `public.users.bio` and `public.posts`.
+- Ran Supabase security advisors with `npx supabase db advisors --linked --output json`; the only warning returned was the existing leaked-password protection warning.
+
+### [!] Failures/Blockers
+- `npx supabase migration list --linked` timed out, so remote migration-history alignment still needs follow-up.
+- First-admin existence, hosted Auth redirect URLs, and legacy seed-user cleanup require live Supabase/Auth checks.
+- `.env.local` still contains legacy variable names, but secret-bearing local env files were not edited.
+
+### [>] Next Steps
+- Re-run remote migration list and direct SQL verification after Supabase CLI connectivity is stable.
+- Confirm first-admin state through the Auth Admin API without exposing secrets, then remove or rotate `ADMIN_SETUP_TOKEN`.
+- Run a live orphan check for `public.users` rows without matching `auth.users` rows before deleting or archiving legacy seed users.
+
 ## 2026-05-27: Phase 2 Item 5 Exams (Codex)
 
 ### [+] Features & Improvements

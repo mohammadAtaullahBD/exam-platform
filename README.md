@@ -1,6 +1,6 @@
 # Exam Platform
 
-A Next.js 16 exam platform for students, teachers, and admins. The project is prepared for Vercel deployment and uses Supabase for auth/database foundations.
+A Next.js 16 exam platform for students and teachers. The project is prepared for Vercel deployment and uses Supabase for auth/database foundations.
 
 ## Quick Start
 
@@ -41,8 +41,6 @@ Required variables:
 - `ADMIN_SETUP_TOKEN`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_KEY`
 
 Generate a strong `ADMIN_SETUP_TOKEN` with:
@@ -72,7 +70,7 @@ On Windows PowerShell, use:
 8. Add the required environment variables in **Project Settings > Environment Variables**.
 9. Set `NEXT_PUBLIC_SITE_URL` to the production URL, for example `https://your-project.vercel.app`.
 10. In Supabase Auth URL Configuration, allow `https://your-project.vercel.app/auth/callback` and `http://localhost:3000/auth/callback`.
-11. Apply `supabase/migrations/20260512180000_auth_profiles_and_admin.sql`.
+11. Apply all migrations in `supabase/migrations/`.
 12. Click **Deploy**.
 
 ## Vercel Settings

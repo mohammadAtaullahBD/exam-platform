@@ -13,7 +13,7 @@
 9. Set Supabase Auth URL configuration:
    - Site URL: production app URL.
    - Redirect URLs: production `/auth/callback` and local `http://localhost:3000/auth/callback`.
-10. Apply `supabase/migrations/20260512180000_auth_profiles_and_admin.sql` in Supabase SQL Editor or through the Supabase CLI when installed.
+10. Apply all migrations in `supabase/migrations/` through the Supabase CLI or SQL Editor.
 11. Deploy.
 
 ## Production Environment Variables
@@ -21,8 +21,6 @@
 - `NEXT_PUBLIC_SITE_URL=https://your-project.vercel.app`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_KEY`
 - `ADMIN_SETUP_TOKEN` until first admin setup is complete
 

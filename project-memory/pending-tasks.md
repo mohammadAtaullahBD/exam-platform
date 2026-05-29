@@ -1,12 +1,14 @@
 # Pending Tasks
 
-## Immediate Setup (do before writing feature code)
+## Immediate Setup Status
 
-- Apply `supabase/migrations/20260512180000_auth_profiles_and_admin.sql` to the Supabase project.
-- In Supabase Auth settings, add production and local `/auth/callback` redirect URLs.
-- Create the first real admin using `/api/admin/bootstrap`, then remove or rotate `ADMIN_SETUP_TOKEN`.
-- Decide whether to delete or archive legacy AI seed users in `public.users`.
-- Optional security upgrade: move the Supabase organization to Pro or higher to enable leaked-password protection.
+- [x] Profile schema and posts alignment are functionally applied in the linked Supabase project per prior verification.
+- [x] Production `/auth/callback` redirect was restored in hosted Supabase Auth config per prior verification.
+- [!] Remote migration history still needs follow-up because older history reportedly contains remote-only `20260522180510` while local has `20260512180000`.
+- [!] Local callback URL `http://localhost:3000/auth/callback` is documented and now present in local `supabase/config.toml`; hosted dashboard config still needs live verification when Supabase access is stable.
+- [!] First real admin/bootstrap state is implemented in code but still requires a live Auth Admin API check. After confirming the first admin exists, remove or rotate `ADMIN_SETUP_TOKEN` in deployment environments.
+- [!] Legacy AI seed users cannot be identified from repository files alone. Run a live orphan check against `public.users` vs `auth.users`; archive or delete orphaned seed rows after confirming they have no important dependent data.
+- [!] Optional security upgrade: move the Supabase organization to Pro or higher to enable leaked-password protection.
 
 ---
 
@@ -16,10 +18,10 @@
 - Public signup, login, email verification, logout, role assignment.
 - All pages under `app/(auth)/` and the Supabase SSR session flow are done.
 
-**2. profiles**
+**2. profiles (complete)**
 - Public teacher profile page visible to students.
 - Student profile page (name, bio, joined date).
-- Route group: `app/(teacher)/profile/` and `app/(student)/profile/`.
+- Implemented with a role-aware `/profile`, `/profile/edit`, `/teacher/[id]`, and student companion routes under `/student/profile` because Next.js route groups cannot define duplicate `/profile` paths.
 
 ---
 
