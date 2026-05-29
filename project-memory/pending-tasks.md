@@ -112,8 +112,8 @@
 
 ## Ongoing
 
-- Re-run `supabase gen types typescript` from the linked project after applying the 2026-05-29 migrations; `types/database.ts` has been updated locally to match the migration SQL because local Docker is unavailable.
+- Re-run `npx.cmd supabase migration list --linked` after the pooler clears to independently confirm the 2026-05-29 migration-history repair.
 - Build an admin UI over `/api/admin/users/[userId]/role`.
 - Add authenticated end-to-end tests for role gates, exam submission, merit visibility, social permissions, and public exam attempts.
 - Run `npm run smoke:routes` with a local server for unauthenticated route and signup-role smoke coverage.
-- Re-run remote migration list, Supabase advisors, and direct Exams/social/public-exams RLS/cron verification queries after Supabase CLI connectivity is stable.
+- Re-run Supabase advisors and direct Exams/social/public-exams RLS/cron verification queries after Supabase CLI connectivity is stable.

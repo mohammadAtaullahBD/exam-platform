@@ -17,7 +17,7 @@ This file tracks the evolution of the Exam Platform, serving as a shared memory 
 - Added teacher public set import on `/questions`, preserving `original_id` on copied questions.
 - Added `npm run smoke:routes` for unauthenticated protected-route and invalid admin-signup smoke checks.
 - Updated dashboard navigation for teacher and student workspaces while keeping hidden super-user routes unlinked.
-- Updated `types/database.ts` to match the local 2026-05-29 migration SQL.
+- Regenerated `types/database.ts` from the linked Supabase schema after applying the 2026-05-29 migrations.
 
 ### [x] Successes
 - Subagent B implemented student exam-taking, merit, progress, and practice.
@@ -30,18 +30,18 @@ This file tracks the evolution of the Exam Platform, serving as a shared memory 
 - Verified `npm run build` passes with network access for Next font fetching.
 - Verified `npm run check` passes with network access for Next font fetching.
 - Verified `npm run smoke:routes` passes against a local production server: 13 protected routes redirect and invalid admin signup returns 400.
-- Verified `npx.cmd supabase migration list --linked` succeeds and shows the three 2026-05-29 migrations are local-only.
+- Applied the three 2026-05-29 migrations to the linked Supabase project with `npx.cmd supabase db query --linked --file ...`.
+- Marked the three 2026-05-29 migrations as applied in linked migration history with `npx.cmd supabase migration repair --linked --status applied`.
+- Regenerated linked Supabase types with `npx.cmd supabase gen types typescript --linked --schema public`.
 
 ### [!] Failures/Blockers
-- Applying `20260529091256_student_submissions.sql` to the linked Supabase project was blocked by pooler `ECIRCUITBREAKER`: too many authentication failures, new connections temporarily blocked. Per project rule, remote retry loops were stopped.
-- `npx.cmd supabase db advisors --linked --output json` timed out during the same pooler instability window.
+- Post-apply `npx.cmd supabase migration list --linked` verification failed with Supabase temp-role auth failures followed by pooler `ECIRCUITBREAKER`; remote retry loops were stopped.
+- `npx.cmd supabase db advisors --linked --output json` timed out during pooler instability and still needs to be rerun.
 - `npx.cmd supabase db lint --local --schema public --level warning` could not run because no local Supabase database is listening on `127.0.0.1:54322`.
-- `types/database.ts` is locally aligned with migration SQL but still needs regeneration from the linked Supabase schema after remote migrations apply.
-- Authenticated end-to-end role, submission, social, and public-exam workflows were not run because the new remote schema could not be applied in this session.
+- Authenticated end-to-end role, submission, social, and public-exam workflows were not run because test sessions were not provided.
 
 ### [>] Next Steps
-- After the Supabase pooler block clears, apply the three 2026-05-29 migrations in order, then mark them applied in migration history if the established `db query` workflow is still needed.
-- Regenerate `types/database.ts` from the linked schema after applying migrations.
+- Re-run `npx.cmd supabase migration list --linked` after the Supabase pooler clears to confirm the repair output through a fresh list.
 - Re-run Supabase security/performance advisors and direct RLS/cron verification queries.
 - Run authenticated E2E checks with real student, teacher, and super-user sessions.
 
