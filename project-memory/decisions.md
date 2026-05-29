@@ -49,3 +49,29 @@ Teacher-created exams live in `public.exams`, with ordered question rows in `pub
 - Exam state is derived from `starts_at` and `ends_at` using database time; teachers can mutate only scheduled exams.
 - `exam_questions` snapshots selected question content, options, and correct answer so later question-bank edits do not rewrite an already assembled exam.
 - A `closed_at` timestamp and `private.close_due_exams()` exist for future merit-list processing, while visible state remains derived from the schedule.
+
+## Submission Scoring
+
+Group exam submissions live in `public.submissions` and `public.submission_answers`.
+
+- One student can submit once per group exam.
+- Server actions verify the signed-in student, group membership, and selected answers before using the service-role client to store the scored submission.
+- A database trigger rejects late inserts using database time, so client timer drift cannot create valid expired submissions.
+- Merit lists read submission summaries after close; raw answer rows are limited to the owning student, owning teacher after close, or admin.
+
+## Public Exams
+
+Public exam sets use separate set and attempt tables instead of overloading group exams.
+
+- Hidden super-users create public sets and source admin-authored questions.
+- Set questions snapshot content/options/answers so later edits do not alter an existing public set.
+- Students can attempt published sets multiple times; no leaderboard is generated.
+- Teachers copy published set questions into their own bank with `original_id` preserved for analytics and customization.
+
+## Social Tables
+
+Teacher posts remain in `public.posts`; Phase 4 adds `public.reactions` and `public.comments`.
+
+- The current feed follows existing post RLS and is visible to authenticated students.
+- Student reactions are deduplicated by `(post_id, user_id, type)`.
+- Comments and reactions are written only through server actions and student-scoped RLS policies.

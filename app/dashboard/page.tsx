@@ -27,7 +27,7 @@ export default async function DashboardPage() {
             </p>
             <h1 className="mt-2 text-3xl font-semibold">Welcome dashboard</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {profile.role === "teacher" ? (
               <>
                 <Link
@@ -48,15 +48,53 @@ export default async function DashboardPage() {
                 >
                   Exams
                 </Link>
+                <Link
+                  className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                  href="/posts"
+                >
+                  Posts
+                </Link>
               </>
             ) : null}
             {profile.role === "student" ? (
-              <Link
-                className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
-                href="/student/groups"
-              >
-                Groups
-              </Link>
+              <>
+                <Link
+                  className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                  href="/student/groups"
+                >
+                  Groups
+                </Link>
+                <Link
+                  className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                  href="/student/exams"
+                >
+                  Exams
+                </Link>
+                <Link
+                  className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                  href="/student/progress"
+                >
+                  Progress
+                </Link>
+                <Link
+                  className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                  href="/student/practice"
+                >
+                  Practice
+                </Link>
+                <Link
+                  className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                  href="/student/feed"
+                >
+                  Feed
+                </Link>
+                <Link
+                  className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
+                  href="/student/public-exams"
+                >
+                  Public Exams
+                </Link>
+              </>
             ) : null}
             <Link
               className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"

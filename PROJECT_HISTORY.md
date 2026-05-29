@@ -2,6 +2,49 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-29: Remaining Platform Tracks B-E (Codex Orchestrator)
+
+### [+] Features & Improvements
+- Added migration `20260529091256_student_submissions.sql` for group exam submissions and answer snapshots.
+- Added migration `20260529091306_social_reactions_comments.sql` for post reactions and comments.
+- Added migration `20260529091313_public_exam_sets.sql` for public exam sets, set questions, attempts, and attempt answers.
+- Added student exam routes at `/student/exams`, `/student/exams/[id]`, and `/student/exams/[id]/merit`.
+- Added teacher merit route at `/exams/[id]/merit`.
+- Added student progress and practice routes at `/student/progress` and `/student/practice`.
+- Added teacher posts route `/posts` and student feed route `/student/feed`.
+- Added hidden super-user public sets route `/public-sets`.
+- Added student public exams route `/student/public-exams`.
+- Added teacher public set import on `/questions`, preserving `original_id` on copied questions.
+- Added `npm run smoke:routes` for unauthenticated protected-route and invalid admin-signup smoke checks.
+- Updated dashboard navigation for teacher and student workspaces while keeping hidden super-user routes unlinked.
+- Updated `types/database.ts` to match the local 2026-05-29 migration SQL.
+
+### [x] Successes
+- Subagent B implemented student exam-taking, merit, progress, and practice.
+- Subagent C implemented posts, reactions, comments, and student feed.
+- Subagent D implemented public sets, public exams, and teacher public-set import.
+- Subagent E audited the verification surface and identified missing smoke-test coverage.
+- Tightened `submission_answers` RLS so group members can see closed-exam submission summaries for merit without seeing other students' raw answers.
+- Verified `npm run lint` passes.
+- Verified `npm run typecheck` passes.
+- Verified `npm run build` passes with network access for Next font fetching.
+- Verified `npm run check` passes with network access for Next font fetching.
+- Verified `npm run smoke:routes` passes against a local production server: 13 protected routes redirect and invalid admin signup returns 400.
+- Verified `npx.cmd supabase migration list --linked` succeeds and shows the three 2026-05-29 migrations are local-only.
+
+### [!] Failures/Blockers
+- Applying `20260529091256_student_submissions.sql` to the linked Supabase project was blocked by pooler `ECIRCUITBREAKER`: too many authentication failures, new connections temporarily blocked. Per project rule, remote retry loops were stopped.
+- `npx.cmd supabase db advisors --linked --output json` timed out during the same pooler instability window.
+- `npx.cmd supabase db lint --local --schema public --level warning` could not run because no local Supabase database is listening on `127.0.0.1:54322`.
+- `types/database.ts` is locally aligned with migration SQL but still needs regeneration from the linked Supabase schema after remote migrations apply.
+- Authenticated end-to-end role, submission, social, and public-exam workflows were not run because the new remote schema could not be applied in this session.
+
+### [>] Next Steps
+- After the Supabase pooler block clears, apply the three 2026-05-29 migrations in order, then mark them applied in migration history if the established `db query` workflow is still needed.
+- Regenerate `types/database.ts` from the linked schema after applying migrations.
+- Re-run Supabase security/performance advisors and direct RLS/cron verification queries.
+- Run authenticated E2E checks with real student, teacher, and super-user sessions.
+
 ## 2026-05-29: Track A Cleanup and Verification (Codex)
 
 ### [+] Documentation & Config

@@ -10,6 +10,14 @@
 - `public.questions`: teacher/admin-authored question bank. Stores `id`, `author_id`, `content`, JSONB `options`, `correct_answer`, `source`, optional `original_id`, and timestamps.
 - `public.exams`: scheduled group exams. Stores `id`, `group_id`, `title`, `starts_at`, `ends_at`, optional `closed_at`, and timestamps.
 - `public.exam_questions`: ordered exam question snapshots. Stores `id`, `exam_id`, optional `question_id`, `sort_order`, `snapshot_content`, JSONB `snapshot_options`, `snapshot_correct_answer`, and `created_at`.
+- `public.submissions`: one scored submission per student per group exam. Stores `id`, `exam_id`, `student_id`, `score`, `total_questions`, `submitted_at`, and `created_at`.
+- `public.submission_answers`: submitted answers for exam question snapshots. Stores `id`, `submission_id`, `exam_question_id`, optional `question_id`, `answer`, `is_correct`, and `created_at`.
+- `public.reactions`: student reactions to teacher posts. Stores `id`, `post_id`, `user_id`, `type`, and `created_at`, with one reaction per post/user/type.
+- `public.comments`: student comments on teacher posts. Stores `id`, `post_id`, `user_id`, `content`, and timestamps.
+- `public.public_exam_sets`: hidden super-user curated public exam sets. Stores `id`, `admin_id`, `title`, `description`, `is_published`, and timestamps.
+- `public.public_exam_set_questions`: ordered public set question snapshots. Stores `id`, `set_id`, optional `question_id`, `sort_order`, `snapshot_content`, JSONB `snapshot_options`, `snapshot_correct_answer`, and `created_at`.
+- `public.public_exam_attempts`: student attempts for public sets. Stores `id`, `set_id`, `student_id`, `score`, `total_questions`, `submitted_at`, and `created_at`.
+- `public.public_exam_attempt_answers`: answers for public set attempts. Stores `id`, `attempt_id`, `set_question_id`, optional `question_id`, `answer`, `is_correct`, and `created_at`.
 
 ## Important Split
 
@@ -70,6 +78,26 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Enables RLS and adds policies so teachers can create exams for their own groups, teachers can mutate only scheduled exams, group members can read their exams, and admins remain super-users.
 - Adds a `pg_cron` job named `close-due-exams` to run `private.close_due_exams()` every minute.
 
+`supabase/migrations/20260529091256_student_submissions.sql` implements Phase 3 submissions:
+
+- Adds `public.submissions` and `public.submission_answers`.
+- Enforces one submission per student per exam.
+- Uses a trigger to reject inserts unless database time says the exam is active for that group member.
+- Exposes closed-exam submission rows for merit lists while keeping raw answers limited to the owning student, owning teacher after close, or admin.
+
+`supabase/migrations/20260529091306_social_reactions_comments.sql` implements Phase 4 social tables:
+
+- Adds `public.reactions` and `public.comments` with FK indexes and RLS.
+- Restricts comment/reaction writes to students acting as themselves.
+- Prevents duplicate `like` reactions with a unique `(post_id, user_id, type)` constraint.
+
+`supabase/migrations/20260529091313_public_exam_sets.sql` implements Phase 5 public exams:
+
+- Adds public exam set, set question, attempt, and attempt answer tables.
+- Uses question snapshots for public sets and attempts.
+- Allows hidden super-users to manage sets, authenticated users to read published sets, and students to read only their own public attempt records.
+- Keeps public attempt writes behind server actions and service-role inserts after role checks so scores are not accepted directly from the Data API.
+
 ## RLS Requirements
 
 - Enable RLS on all public tables.
@@ -79,3 +107,5 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Group invite token lookup and membership insertion happen in server actions; client components never call Supabase directly.
 - Question mutations happen through server actions; client components do not call Supabase directly.
 - Exam mutations happen through server actions; client components do not call Supabase directly.
+- Submission and public-attempt scoring happen in server actions after authenticated role checks.
+- Direct authenticated clients receive read access only for scored submission/attempt records; service-role writes are guarded by server-side membership/role checks and database triggers.

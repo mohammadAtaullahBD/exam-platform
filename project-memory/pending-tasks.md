@@ -51,42 +51,42 @@
 
 ## Phase 3 — Student Core
 
-**6. exam-taking**
+**6. exam-taking (complete)**
 - Student sees upcoming and active exams for their groups.
-- Countdown timer; questions displayed one at a time or all at once (decide before building).
-- Auto-submit when timer reaches zero.
-- Routes: `app/(student)/exams/[id]/`.
+- Countdown timer; questions are displayed all at once.
+- Auto-submit is attempted when the timer reaches zero; database trigger rejects late inserts using database time.
+- Routes: `app/(student)/student/exams/` and `app/(student)/student/exams/[id]/`.
 
-**7. merit-list**
+**7. merit-list (complete)**
 - Ranked leaderboard shown to all group members after exam closes.
 - Ranked by score descending; ties broken by `submitted_at` ascending.
-- Routes: `app/(student)/exams/[id]/merit/` and same for teacher view.
+- Routes: `app/(student)/student/exams/[id]/merit/` and `app/(teacher)/exams/[id]/merit/`.
 
-**8. progress dashboard**
+**8. progress dashboard (complete)**
 - Student sees all previous exams: date, group, score, merit position.
-- Routes: `app/(student)/progress/`.
+- Routes: `app/(student)/student/progress/`.
 - Feature slice: `features/progress/`.
 
-**9. practice**
+**9. practice (complete)**
 - Student retakes only the questions they got wrong: filter `submission_answers` where `is_correct = false`.
 - No score or merit generated; purely for self-study.
-- Routes: `app/(student)/practice/`.
+- Routes: `app/(student)/student/practice/`.
 - Feature slice: `features/practice/`.
 
 ---
 
 ## Phase 4 — Social
 
-**10. posts**
-- Teacher publishes text-only posts visible to all followers.
-- Routes: `app/(teacher)/posts/` (create) and `app/(student)/feed/` (read).
+**10. posts (complete)**
+- Teacher publishes text-only posts visible to authenticated students through the current post RLS model.
+- Routes: `app/(teacher)/posts/` (create) and `app/(student)/student/feed/` (read).
 - Feature slice: `features/posts/`.
 
-**11. reactions**
+**11. reactions (complete)**
 - Students react to teacher posts (like, etc.).
 - Feature slice: `features/reactions/`.
 
-**12. comments**
+**12. comments (complete)**
 - Students comment on teacher posts.
 - Feature slice: `features/comments/`.
 
@@ -94,27 +94,26 @@
 
 ## Phase 5 — Public Exams
 
-**13. public-sets (admin)**
-- Admin creates named question sets available to all teachers.
+**13. public-sets (admin) (complete)**
+- Hidden super-user route creates named question sets available to students and teachers.
 - Routes: `app/(admin)/public-sets/`.
 
-**14. public-exam (student)**
+**14. public-exam (student) (complete)**
 - Any student can take a public exam set at any time.
 - No merit list or leaderboard is generated; only personal score is stored.
-- Routes: `app/(student)/public-exams/`.
+- Routes: `app/(student)/student/public-exams/`.
 - Feature slice: `features/public-exams/`.
 
-**15. teacher customisation**
-- Teacher copies an admin public set into their own question bank and customises it for a specific group exam.
+**15. teacher customisation (complete)**
+- Teacher copies a published public set into their own question bank and customises those questions for group exams.
 - Store `original_id` on copied questions for future analytics.
 
 ---
 
 ## Ongoing
 
-- Add RLS policies for each new table before exposing it through the Data API.
-- Index every FK column after each migration (`CREATE INDEX` on every `_id` column).
-- Run `supabase gen types typescript` after every schema change and commit the updated `types/database.ts`.
+- Re-run `supabase gen types typescript` from the linked project after applying the 2026-05-29 migrations; `types/database.ts` has been updated locally to match the migration SQL because local Docker is unavailable.
 - Build an admin UI over `/api/admin/users/[userId]/role`.
-- Add automated tests for signup, verification callback, protected route redirects, logout, and admin promotion.
-- Re-run Supabase security advisors and direct Exams RLS/cron verification queries after the pooler `ECIRCUITBREAKER` clears.
+- Add authenticated end-to-end tests for role gates, exam submission, merit visibility, social permissions, and public exam attempts.
+- Run `npm run smoke:routes` with a local server for unauthenticated route and signup-role smoke coverage.
+- Re-run remote migration list, Supabase advisors, and direct Exams/social/public-exams RLS/cron verification queries after Supabase CLI connectivity is stable.

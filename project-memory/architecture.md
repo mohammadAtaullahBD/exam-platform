@@ -126,7 +126,7 @@ src/
 - `id uuid PK`, `exam_id uuid FK → exams`, `student_id uuid FK → profiles`, `score int`, `submitted_at timestamptz`
 
 **submission_answers** — one row per question per submission
-- `id uuid PK`, `submission_id uuid FK → submissions`, `question_id uuid FK → questions`, `answer text`, `is_correct bool`
+- `id uuid PK`, `submission_id uuid FK → submissions`, `exam_question_id uuid FK → exam_questions`, `question_id uuid FK → questions`, `answer text`, `is_correct bool`
 
 **posts** — teacher's public text-only social posts
 - `id uuid PK`, `teacher_id uuid FK → profiles`, `content text`, `created_at timestamptz`
@@ -138,7 +138,16 @@ src/
 - `id uuid PK`, `post_id uuid FK → posts`, `user_id uuid FK → profiles`, `content text`, `created_at timestamptz`
 
 **public_exam_sets** — admin-curated question sets; any student can attempt
-- `id uuid PK`, `admin_id uuid FK → profiles`, `title text`, `description text`
+- `id uuid PK`, `admin_id uuid FK → profiles`, `title text`, `description text`, `is_published bool`
+
+**public_exam_set_questions** — ordered public set question snapshots
+- `id uuid PK`, `set_id uuid FK → public_exam_sets`, `question_id uuid FK → questions`, `sort_order int`, snapshot fields
+
+**public_exam_attempts** — personal student attempts for public sets
+- `id uuid PK`, `set_id uuid FK → public_exam_sets`, `student_id uuid FK → profiles`, `score int`, `total_questions int`, `submitted_at timestamptz`
+
+**public_exam_attempt_answers** — answers for public set attempts
+- `id uuid PK`, `attempt_id uuid FK → public_exam_attempts`, `set_question_id uuid FK → public_exam_set_questions`, `question_id uuid FK → questions`, `answer text`, `is_correct bool`
 
 ### Index Every Foreign Key
 

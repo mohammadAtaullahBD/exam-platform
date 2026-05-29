@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-29
+
+- Added student exam-taking routes with countdown, active-window submission, auto-submit attempt, and submission scoring.
+- Added merit-list routes for students and teachers.
+- Added student progress and wrong-answer practice dashboards.
+- Added teacher posts, student feed, reactions, and comments.
+- Added hidden public-set management route, student public exam attempts, and teacher public-set question import.
+- Added migrations for submissions, social reactions/comments, and public exam sets/attempts.
+- Added `npm run smoke:routes` for protected-route and invalid-signup smoke coverage.
+
 ## 2026-05-12
 
 - Fixed `/auth/callback` to support Supabase token-fragment verification links (`#access_token` and `#refresh_token`) as well as PKCE `?code=` links.

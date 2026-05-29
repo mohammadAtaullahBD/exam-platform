@@ -53,6 +53,24 @@
   - `/exams` lets teachers create group exams from their question bank and list scheduled, active, and closed exams.
   - `features/exams/` contains exam actions, queries, types, and components.
   - `types/database.ts` was regenerated and includes `exams` and `exam_questions`.
+- Phase 3 student core implemented:
+  - `public.submissions` and `public.submission_answers` are defined in migration SQL with FK indexes, RLS, one-submission-per-student enforcement, and active-window insert trigger.
+  - `/student/exams` lists upcoming and active joined-group exams.
+  - `/student/exams/[id]` opens active exams, renders all questions, shows a countdown, and submits scored answers through a Server Action.
+  - `/student/exams/[id]/merit` and `/exams/[id]/merit` show rankings after close.
+  - `/student/progress` shows previous closed exam scores and merit position.
+  - `/student/practice` lets students retry questions they previously answered incorrectly without creating scores or merit entries.
+- Phase 4 social implemented:
+  - `public.reactions` and `public.comments` are defined in migration SQL with FK indexes, RLS, and duplicate reaction prevention.
+  - `/posts` lets teachers publish text-only posts.
+  - `/student/feed` lets students read posts, react, and comment.
+- Phase 5 public exams implemented:
+  - `public.public_exam_sets`, `public.public_exam_set_questions`, `public.public_exam_attempts`, and `public.public_exam_attempt_answers` are defined in migration SQL with FK indexes and RLS.
+  - Hidden `/public-sets` lets the super-user create published or draft public sets.
+  - `/student/public-exams` lets students take published public sets at any time and stores personal scores only.
+  - `/questions` lets teachers copy published public set questions into their own question bank with `original_id` preserved.
+- Dashboard navigation now links role-appropriate teacher/student workspaces while keeping hidden super-user routes unlinked.
+- Added `scripts/smoke-routes.mjs` and `npm run smoke:routes` for unauthenticated protected-route and invalid admin-signup smoke coverage.
 
 ## Verified
 
@@ -60,6 +78,7 @@
 - `npm run typecheck`
 - `npm run build`
 - `npm run check`
+- `npx tsc --noEmit --incremental false`
 - HTTP smoke checks:
   - `/` returns 200.
   - `/dashboard` redirects unauthenticated users to `/signin?callbackUrl=%2Fdashboard`.
@@ -77,6 +96,13 @@
   - `/join/[token]` redirects unauthenticated users to sign-in.
   - `/questions` redirects unauthenticated users to sign-in.
   - `/exams` redirects unauthenticated users to `/signin?callbackUrl=%2Fexams`.
+  - `/posts` redirects unauthenticated users to sign-in.
+  - `/student/exams` redirects unauthenticated users to sign-in.
+  - `/student/progress` redirects unauthenticated users to sign-in.
+  - `/student/practice` redirects unauthenticated users to sign-in.
+  - `/student/feed` redirects unauthenticated users to sign-in.
+  - `/student/public-exams` redirects unauthenticated users to sign-in.
+  - `/public-sets` redirects unauthenticated users to sign-in.
   - A teacher can create a question through `/questions`; a temporary verification question was deleted afterward.
 
 ## Note
@@ -94,3 +120,5 @@ The Questions migration was applied with `supabase db query` and then marked app
 Question creation initially failed because the `public.questions` check constraints called private validation helpers that only `postgres` could execute. The follow-up grant migration was applied in Supabase Studio and marked in remote migration history after the CLI hit `ECIRCUITBREAKER`.
 
 The Exams migration was applied with `supabase db query` and then marked applied with `supabase migration repair`, following the established workflow for this project. Migration list verification and type generation succeeded, and performance advisors reported no warnings. Later security advisor and direct verification queries hit the recurring Supabase pooler `ECIRCUITBREAKER` temporary authentication block.
+
+The 2026-05-29 migrations have been created locally but still need to be applied to the linked Supabase project. `npx.cmd supabase migration list --linked` succeeds and shows `20260529091256`, `20260529091306`, and `20260529091313` are local-only. Applying the first migration with `npx.cmd supabase db query --linked --file supabase\migrations\20260529091256_student_submissions.sql` hit pooler `ECIRCUITBREAKER`, so retry loops were stopped per project rule. Local Docker/Supabase is unavailable, so `types/database.ts` was updated to match the migration SQL and should be regenerated from the linked schema after the migrations are applied.

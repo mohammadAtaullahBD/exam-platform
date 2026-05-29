@@ -67,6 +67,7 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
   submission_answers {
     uuid id PK
     uuid submission_id FK
+    uuid exam_question_id FK
     uuid question_id FK
     text answer
     bool is_correct
@@ -95,6 +96,29 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
     uuid admin_id FK
     text title
     text description
+    bool is_published
+  }
+  public_exam_set_questions {
+    uuid id PK
+    uuid set_id FK
+    uuid question_id FK
+    int sort_order
+  }
+  public_exam_attempts {
+    uuid id PK
+    uuid set_id FK
+    uuid student_id FK
+    int score
+    int total_questions
+    timestamp submitted_at
+  }
+  public_exam_attempt_answers {
+    uuid id PK
+    uuid attempt_id FK
+    uuid set_question_id FK
+    uuid question_id FK
+    text answer
+    bool is_correct
   }
 
   profiles ||--o{ groups : teaches
@@ -108,10 +132,17 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
   profiles ||--o{ submissions : submits
   submissions ||--o{ submission_answers : has
   questions ||--o{ submission_answers : answered_by
+  exam_questions ||--o{ submission_answers : snapshot_answered
   profiles ||--o{ posts : publishes
   posts ||--o{ reactions : receives
   posts ||--o{ comments : receives
-  public_exam_sets ||--o{ exam_questions : reused_in
+  public_exam_sets ||--o{ public_exam_set_questions : contains
+  questions ||--o{ public_exam_set_questions : snapshots
+  public_exam_sets ||--o{ public_exam_attempts : receives
+  profiles ||--o{ public_exam_attempts : attempts
+  public_exam_attempts ||--o{ public_exam_attempt_answers : has
+  public_exam_set_questions ||--o{ public_exam_attempt_answers : answered_by
+  questions ||--o{ public_exam_attempt_answers : original
 `);
 document.getElementById('erd').innerHTML = svg;
 document.querySelectorAll('#erd svg .node').forEach(node => {
