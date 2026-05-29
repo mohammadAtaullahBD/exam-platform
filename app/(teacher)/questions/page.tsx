@@ -1,9 +1,11 @@
 import Link from "next/link";
 
 import { CreateQuestionForm } from "@/features/questions/components/create-question-form";
+import { PublicSetImportPanel } from "@/features/questions/components/public-set-import-panel";
 import { QuestionCard } from "@/features/questions/components/question-card";
 import { QuestionFilters } from "@/features/questions/components/question-filters";
 import {
+  getPublicQuestionSetImportOptions,
   getTeacherQuestions,
   parseQuestionFilters,
 } from "@/features/questions/queries";
@@ -19,7 +21,10 @@ export default async function TeacherQuestionsPage({
   searchParams,
 }: TeacherQuestionsPageProps) {
   const filters = parseQuestionFilters(await searchParams);
-  const questions = await getTeacherQuestions(filters, "/questions");
+  const [questions, importSets] = await Promise.all([
+    getTeacherQuestions(filters, "/questions"),
+    getPublicQuestionSetImportOptions("/questions"),
+  ]);
 
   return (
     <main className="min-h-screen bg-[#f6f8f5] px-5 py-8 text-[#17211b] sm:px-8">
@@ -70,7 +75,10 @@ export default async function TeacherQuestionsPage({
           </section>
 
           <aside>
-            <CreateQuestionForm />
+            <div className="space-y-6">
+              <PublicSetImportPanel sets={importSets} />
+              <CreateQuestionForm />
+            </div>
           </aside>
         </div>
       </div>

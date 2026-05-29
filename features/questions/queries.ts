@@ -7,9 +7,21 @@ import { toUserRole } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/types/database";
 
-import type { Question, QuestionFilters } from "./types";
+import type {
+  PublicQuestionSetImportOption,
+  Question,
+  QuestionFilters,
+} from "./types";
 
 type QuestionRow = Database["public"]["Tables"]["questions"]["Row"];
+type PublicExamSetRow = Database["public"]["Tables"]["public_exam_sets"]["Row"];
+
+type PublicExamSetImportRow = Pick<
+  PublicExamSetRow,
+  "id" | "title" | "description"
+> & {
+  public_exam_set_questions: Array<{ id: string }> | null;
+};
 
 function optionsFromJson(options: Json): string[] {
   if (!Array.isArray(options)) {
@@ -107,4 +119,27 @@ export async function getTeacherQuestions(
 
     return haystack.includes(normalizedSearch);
   });
+}
+
+export async function getPublicQuestionSetImportOptions(
+  callbackUrl = "/questions",
+) {
+  const { supabase } = await requireTeacher(callbackUrl);
+  const { data, error } = await supabase
+    .from("public_exam_sets")
+    .select("id,title,description,public_exam_set_questions(id)")
+    .eq("is_published", true)
+    .order("created_at", { ascending: false })
+    .returns<PublicExamSetImportRow[]>();
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map<PublicQuestionSetImportOption>((set) => ({
+    id: set.id,
+    title: set.title,
+    description: set.description,
+    questionCount: set.public_exam_set_questions?.length ?? 0,
+  }));
 }

@@ -28,7 +28,24 @@ export type QuestionActionState = {
   };
 };
 
+export type PublicQuestionSetImportOption = {
+  id: string;
+  title: string;
+  description: string | null;
+  questionCount: number;
+};
+
+export type QuestionImportActionState = {
+  status: "idle" | "success" | "error";
+  message: string;
+};
+
 export const initialQuestionActionState: QuestionActionState = {
+  status: "idle",
+  message: "",
+};
+
+export const initialQuestionImportActionState: QuestionImportActionState = {
   status: "idle",
   message: "",
 };

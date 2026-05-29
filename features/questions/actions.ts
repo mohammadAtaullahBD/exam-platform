@@ -8,8 +8,17 @@ import { redirect } from "next/navigation";
 import { toUserRole } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { questionSchema } from "@/lib/validations/question";
+import type { Database } from "@/types/database";
 
-import type { QuestionActionState } from "./types";
+import type { QuestionActionState, QuestionImportActionState } from "./types";
+
+type PublicExamSetQuestionRow =
+  Database["public"]["Tables"]["public_exam_set_questions"]["Row"];
+
+type PublicExamSetWithQuestionsRow =
+  Database["public"]["Tables"]["public_exam_sets"]["Row"] & {
+    public_exam_set_questions: PublicExamSetQuestionRow[] | null;
+  };
 
 async function requireTeacher(callbackUrl: string) {
   const supabase = await createClient();
@@ -170,5 +179,78 @@ export async function deleteQuestion(
   return {
     status: "success",
     message: "Question deleted.",
+  };
+}
+
+export async function copyPublicExamSetToQuestionBank(
+  _previousState: QuestionImportActionState,
+  formData: FormData,
+): Promise<QuestionImportActionState> {
+  const setId = formData.get("setId");
+
+  if (typeof setId !== "string" || !setId) {
+    return {
+      status: "error",
+      message: "Choose a public set to copy.",
+    };
+  }
+
+  const { supabase, user } = await requireTeacher("/questions");
+  const { data: setData, error: setError } = await supabase
+    .from("public_exam_sets")
+    .select("*, public_exam_set_questions(*)")
+    .eq("id", setId)
+    .eq("is_published", true)
+    .maybeSingle();
+  const set = setData as PublicExamSetWithQuestionsRow | null;
+
+  if (setError || !set) {
+    return {
+      status: "error",
+      message: "This public set is not available.",
+    };
+  }
+
+  const questions = [...(set.public_exam_set_questions ?? [])].sort(
+    (a, b) => a.sort_order - b.sort_order,
+  );
+
+  if (!questions.length) {
+    return {
+      status: "error",
+      message: "This public set has no questions to copy.",
+    };
+  }
+
+  const copiedQuestions = questions.map((question) => ({
+    author_id: user.id,
+    content: question.snapshot_content,
+    options: question.snapshot_options,
+    correct_answer: question.snapshot_correct_answer,
+    source: "teacher",
+    original_id: question.question_id,
+  }));
+  const { error } = await supabase.from("questions").insert(copiedQuestions);
+
+  if (error) {
+    console.error("Copy public set questions failed", {
+      code: error.code,
+      message: error.message,
+    });
+
+    return {
+      status: "error",
+      message: "Public set questions could not be copied. Please try again.",
+    };
+  }
+
+  revalidatePath("/questions");
+  revalidatePath("/exams");
+
+  return {
+    status: "success",
+    message: `${questions.length} ${
+      questions.length === 1 ? "question" : "questions"
+    } copied to your bank.`,
   };
 }
