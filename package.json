@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "smoke:routes": "node scripts/smoke-routes.mjs",
+    "verify:live-state": "node scripts/verify-live-state.mjs",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build"
   },

@@ -4,10 +4,12 @@
 
 - [x] Profile schema and posts alignment are functionally applied in the linked Supabase project per prior verification.
 - [x] Production `/auth/callback` redirect was restored in hosted Supabase Auth config per prior verification.
-- [!] Remote migration history still needs follow-up because older history reportedly contains remote-only `20260522180510` while local has `20260512180000`.
+- [x] The 2026-05-29 migrations were applied and later confirmed aligned in linked migration history.
+- [!] Older migration history still contains a known mismatch: local-only `20260512180000` and remote-only `20260522180510`.
 - [!] Local callback URL `http://localhost:3000/auth/callback` is documented and now present in local `supabase/config.toml`; hosted dashboard config still needs live verification when Supabase access is stable.
-- [!] First real admin/bootstrap state is implemented in code but still requires a live Auth Admin API check. After confirming the first admin exists, remove or rotate `ADMIN_SETUP_TOKEN` in deployment environments.
-- [!] Legacy AI seed users cannot be identified from repository files alone. Run a live orphan check against `public.users` vs `auth.users`; archive or delete orphaned seed rows after confirming they have no important dependent data.
+- [x] First real admin/bootstrap state was verified through the Auth Admin API without exposing secrets; at least one Auth user has trusted `app_metadata.role = admin`.
+- [!] `ADMIN_SETUP_TOKEN` is still configured locally. Remove or rotate it in local/deployment environments after confirming no further bootstrap is needed.
+- [!] Live orphan check found 4 `public.users` rows without matching Auth users. Archive or delete those legacy/seed rows after confirming they have no important dependent data.
 - [!] Optional security upgrade: move the Supabase organization to Pro or higher to enable leaked-password protection.
 
 ---
@@ -112,8 +114,8 @@
 
 ## Ongoing
 
-- Re-run `npx.cmd supabase migration list --linked` after the pooler clears to independently confirm the 2026-05-29 migration-history repair.
+- Resolve or document the older migration-history mismatch between local-only `20260512180000` and remote-only `20260522180510`.
 - Build an admin UI over `/api/admin/users/[userId]/role`.
 - Add authenticated end-to-end tests for role gates, exam submission, merit visibility, social permissions, and public exam attempts.
-- Run `npm run smoke:routes` with a local server for unauthenticated route and signup-role smoke coverage.
-- Re-run Supabase advisors and direct Exams/social/public-exams RLS/cron verification queries after Supabase CLI connectivity is stable.
+- Confirm hosted Auth redirect URLs directly in the Supabase dashboard if deployment verification is needed.
+- Clean up or archive the 4 orphan profile rows after a dependency check.

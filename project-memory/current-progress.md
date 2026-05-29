@@ -71,6 +71,7 @@
   - `/questions` lets teachers copy published public set questions into their own question bank with `original_id` preserved.
 - Dashboard navigation now links role-appropriate teacher/student workspaces while keeping hidden super-user routes unlinked.
 - Added `scripts/smoke-routes.mjs` and `npm run smoke:routes` for unauthenticated protected-route and invalid admin-signup smoke coverage.
+- Added `scripts/verify-live-state.mjs` and `npm run verify:live-state` for aggregate Auth/profile verification without printing secrets.
 
 ## Verified
 
@@ -78,7 +79,15 @@
 - `npm run typecheck`
 - `npm run build`
 - `npm run check`
+- `npm run verify:live-state`
 - `npx tsc --noEmit --incremental false`
+- `npx.cmd supabase migration list --linked`
+- `npx.cmd supabase db advisors --linked --level warn --fail-on none --output-format json`
+- Direct linked SQL checks confirmed:
+  - RLS is enabled and policies exist on submissions, submission_answers, reactions, comments, public_exam_sets, public_exam_set_questions, public_exam_attempts, and public_exam_attempt_answers.
+  - FK/supporting indexes exist for the new Phase 3-5 tables.
+  - Submission/public-exam guard functions and triggers exist in the linked database.
+  - `close-due-exams` is active in `cron.job` with a one-minute schedule.
 - HTTP smoke checks:
   - `/` returns 200.
   - `/dashboard` redirects unauthenticated users to `/signin?callbackUrl=%2Fdashboard`.
@@ -121,4 +130,8 @@ Question creation initially failed because the `public.questions` check constrai
 
 The Exams migration was applied with `supabase db query` and then marked applied with `supabase migration repair`, following the established workflow for this project. Migration list verification and type generation succeeded, and performance advisors reported no warnings. Later security advisor and direct verification queries hit the recurring Supabase pooler `ECIRCUITBREAKER` temporary authentication block.
 
-The 2026-05-29 migrations were applied to the linked Supabase project with `npx.cmd supabase db query --linked --file ...` and marked applied with `npx.cmd supabase migration repair --linked --status applied 20260529091256 20260529091306 20260529091313`. `types/database.ts` was regenerated from the linked schema afterward. A post-repair `npx.cmd supabase migration list --linked` verification failed with temp-role auth failures followed by pooler `ECIRCUITBREAKER`, so retry loops were stopped per project rule. Local Docker/Supabase is unavailable, so local database linting still cannot run.
+The 2026-05-29 migrations were applied to the linked Supabase project with `npx.cmd supabase db query --linked --file ...` and marked applied with `npx.cmd supabase migration repair --linked --status applied 20260529091256 20260529091306 20260529091313`. `types/database.ts` was regenerated from the linked schema afterward. A post-repair `npx.cmd supabase migration list --linked` initially failed with temp-role auth failures followed by pooler `ECIRCUITBREAKER`, so retry loops were stopped per project rule. A later follow-up `migration list` succeeded and confirmed the 2026-05-29 migrations are aligned locally/remotely. The older migration-history mismatch remains: local-only `20260512180000` and remote-only `20260522180510`.
+
+Live Auth/profile verification with `npm run verify:live-state` confirmed 4 Auth users, 8 profile rows, at least one Auth admin, and no Auth users missing profiles. It also found 4 orphan `public.users` profiles without matching Auth users, `ADMIN_SETUP_TOKEN` still configured locally, and legacy duplicate env names still present in `.env.local`. The secret-bearing env file was not edited.
+
+Supabase advisors now run successfully with the installed CLI (`2.102.0`). The full linked advisor run reports only `auth_leaked_password_protection`; performance advisors report no issues. Local Docker/Supabase is unavailable, so local database linting still cannot run.

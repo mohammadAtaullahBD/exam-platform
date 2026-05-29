@@ -2,6 +2,37 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-29: Live Supabase Verification Follow-up (Codex)
+
+### [+] Tooling
+- Added `scripts/verify-live-state.mjs` and `npm run verify:live-state` for aggregate Auth/profile checks without printing secrets.
+
+### [x] Successes
+- Verified `npx.cmd supabase migration list --linked` now completes after the earlier pooler instability.
+- Confirmed the three 2026-05-29 migrations are aligned locally/remotely in migration history: `20260529091256`, `20260529091306`, and `20260529091313`.
+- Verified the previously known older migration-history mismatch still exists: local-only `20260512180000` and remote-only `20260522180510`.
+- Verified the first-admin/bootstrap state through the Auth Admin API: at least one Auth user has trusted `app_metadata.role = admin`.
+- Verified all Auth users currently have matching `public.users` profiles.
+- Verified the new public tables have RLS enabled and policies present: submissions, submission_answers, reactions, comments, public_exam_sets, public_exam_set_questions, public_exam_attempts, and public_exam_attempt_answers.
+- Verified FK/supporting indexes exist for the new tables.
+- Verified private helper functions and insert guard triggers exist for submissions and public exam attempts.
+- Verified the `close-due-exams` cron job is active on the linked Supabase project with a one-minute schedule.
+- Re-ran Supabase advisors successfully:
+  - Security advisor reports only `auth_leaked_password_protection` as a project-level warning.
+  - Performance advisor reports no issues.
+
+### [!] Failures/Blockers
+- `npm run verify:live-state` found 4 `public.users` profiles without matching Auth users. These are likely legacy/seed rows and should be archived or deleted only after checking dependent data.
+- `.env.local` still contains legacy duplicate names: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NEXTAUTH_SECRET`, and `NEXTAUTH_URL`. The secret-bearing file was not edited.
+- `ADMIN_SETUP_TOKEN` is still configured locally. Rotate or remove it from local/deployment environments after confirming no further bootstrap is needed.
+- Authenticated end-to-end role, submission, social, and public-exam workflows were not run because real test sessions were not provided.
+
+### [>] Next Steps
+- Decide whether to archive or delete the 4 orphan `public.users` rows after checking for dependent data.
+- Confirm hosted Auth redirect URLs directly in the Supabase dashboard if deployment verification is needed.
+- Upgrade Supabase to Pro or higher if leaked-password protection is required.
+- Run authenticated E2E checks with real student, teacher, and super-user sessions.
+
 ## 2026-05-29: Remaining Platform Tracks B-E (Codex Orchestrator)
 
 ### [+] Features & Improvements
@@ -35,14 +66,12 @@ This file tracks the evolution of the Exam Platform, serving as a shared memory 
 - Regenerated linked Supabase types with `npx.cmd supabase gen types typescript --linked --schema public`.
 
 ### [!] Failures/Blockers
-- Post-apply `npx.cmd supabase migration list --linked` verification failed with Supabase temp-role auth failures followed by pooler `ECIRCUITBREAKER`; remote retry loops were stopped.
-- `npx.cmd supabase db advisors --linked --output json` timed out during pooler instability and still needs to be rerun.
+- Earlier post-apply `npx.cmd supabase migration list --linked` verification failed with Supabase temp-role auth failures followed by pooler `ECIRCUITBREAKER`; a later follow-up run succeeded and is documented above.
+- Earlier `npx.cmd supabase db advisors --linked --output json` timed out during pooler instability; later follow-up advisor runs succeeded and are documented above.
 - `npx.cmd supabase db lint --local --schema public --level warning` could not run because no local Supabase database is listening on `127.0.0.1:54322`.
 - Authenticated end-to-end role, submission, social, and public-exam workflows were not run because test sessions were not provided.
 
 ### [>] Next Steps
-- Re-run `npx.cmd supabase migration list --linked` after the Supabase pooler clears to confirm the repair output through a fresh list.
-- Re-run Supabase security/performance advisors and direct RLS/cron verification queries.
 - Run authenticated E2E checks with real student, teacher, and super-user sessions.
 
 ## 2026-05-29: Track A Cleanup and Verification (Codex)
