@@ -40,6 +40,11 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Adds private trigger helpers to sync Auth user changes into `public.users`.
 - Enables RLS and profile/admin policies.
 
+`supabase/migrations/20260522180510_fix_auth_profile_sync.sql` mirrors the remote Auth profile-sync fix:
+
+- Recreates `private.sync_auth_user_profile()`.
+- Recreates insert/update triggers on `auth.users` so Auth email, name, and trusted app role changes sync into `public.users`.
+
 `supabase/migrations/20260524112618_align_profiles_posts_schema.sql` aligns the linked database for Phase 1 profiles:
 
 - Adds `bio` to `public.users`.

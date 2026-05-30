@@ -33,6 +33,8 @@ The first admin is created with `/api/admin/bootstrap`, guarded by `ADMIN_SETUP_
 
 After that, admins use `/api/admin/users/[userId]/role` to promote/demote users.
 
+The hidden `/admin/users` route provides a private super-user UI over the same trusted role-management flow. It is not linked from public or role dashboards.
+
 ## Question Bank Shape
 
 Teacher question bank items live in `public.questions`.

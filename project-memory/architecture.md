@@ -10,6 +10,7 @@
 - `app/api/auth/signup/route.ts` handles public student/teacher signup.
 - `app/api/admin/bootstrap/route.ts` creates the first admin using `ADMIN_SETUP_TOKEN`.
 - `app/api/admin/users/[userId]/role/route.ts` lets an existing admin promote/demote users.
+- `app/(admin)/admin/users/page.tsx` is a hidden super-user surface for reviewing Auth users and updating trusted roles.
 - `lib/supabase/` contains browser, server, admin, proxy, and profile helpers.
 - `proxy.ts` refreshes Supabase SSR cookies and redirects unauthenticated dashboard visits.
 

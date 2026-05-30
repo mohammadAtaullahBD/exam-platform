@@ -9,24 +9,29 @@ This file tracks the evolution of the Exam Platform, serving as a shared memory 
 - Added `scripts/smoke-static-invariants.mjs` and `npm run smoke:static` for static architecture/security invariants.
 - Expanded `scripts/smoke-routes.mjs` to cover more protected dynamic routes and unauthenticated API gates.
 - Added migration `20260530032151_add_users_auth_fk_not_valid.sql` to add the intended `public.users(id) -> auth.users(id)` FK as `NOT VALID`.
+- Fetched remote migration `20260522180510_fix_auth_profile_sync.sql` into local migration history.
+- Added hidden `/admin/users` role-management UI over Supabase Auth users.
 
 ### [x] Successes
 - `npm run smoke:live-workflows` passed with 45 checks covering role gating, group exam creation/visibility, active submission, expired submission rejection, merit after close, progress/practice reads, social permissions, admin-only public sets, public exam scoring reads, and teacher public-set import preserving `original_id`.
 - `npm run verify:live-state` after the live workflow smoke returned to the baseline 4 Auth users / 8 profile rows, confirming temporary smoke fixtures were cleaned up.
+- `npm run verify:live-state` now reports orphan profile roles and dependency counts; the 4 orphan profiles currently have zero direct dependencies in groups, posts, questions, submissions, public exam sets/attempts, reactions, comments, or group memberships.
 - `npm run smoke:static` passed, confirming public signup excludes admin, hidden super-user routes are not linked from public/dashboard UI, client components do not reference service secrets/admin clients, and authorization avoids user-editable role metadata.
 - Expanded `npm run smoke:routes` passed against a local production server with 17 protected routes plus public/auth/API checks.
 - Applied `20260530032151_add_users_auth_fk_not_valid.sql` to the linked Supabase project with `npx.cmd supabase db query --linked --file ...`.
 - Marked `20260530032151` as applied in linked migration history with `npx.cmd supabase migration repair --linked --status applied`.
 - Direct linked SQL verified `users_id_auth_fkey` now exists and is intentionally unvalidated while 4 legacy orphan profiles remain.
+- Verified the live auth/profile schema has the intended `20260512180000` effects, then marked `20260512180000` applied in linked migration history.
+- Verified `npx.cmd supabase migration list --linked` now shows all local and remote migrations aligned.
+- Re-ran Supabase advisors; the only remaining warning is the project-level `auth_leaked_password_protection`.
+- Regenerated linked Supabase types safely through a temp file; `types/database.ts` had no content diff because the new migration only adds an FK.
+- `npm run typecheck`, `npm run lint`, and `npm run smoke:static` passed after adding the hidden user-management UI.
 
 ### [!] Failures/Blockers
-- Post-apply `npx.cmd supabase migration list --linked` timed out, and the subsequent advisor run hit Supabase pooler `ECIRCUITBREAKER`; retry loops were stopped.
-- `npx.cmd supabase gen types typescript --linked --schema public` timed out and briefly left `types/database.ts` empty; the committed generated file was restored because the FK-only migration does not change public table columns.
 - The new auth FK cannot be validated until the 4 orphan `public.users` rows are archived or deleted.
 - Local Supabase database linting still cannot run because no local database is listening on `127.0.0.1:54322`.
 
 ### [>] Next Steps
-- Re-run migration-list/advisors/type generation after the Supabase pooler clears.
 - Archive or delete the 4 isolated orphan profiles after explicit approval, then validate `users_id_auth_fkey`.
 
 ## 2026-05-29: Live Supabase Verification Follow-up (Codex)

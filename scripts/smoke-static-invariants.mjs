@@ -81,6 +81,10 @@ for (const file of hiddenRouteSurfaceFiles) {
     !read(file).includes('href="/public-sets"'),
     `${file} must not link hidden super-user public sets.`,
   );
+  assert(
+    !read(file).includes('href="/admin/users"'),
+    `${file} must not link hidden user management.`,
+  );
 }
 mark("hidden super-user route is not linked from public/dashboard UI");
 

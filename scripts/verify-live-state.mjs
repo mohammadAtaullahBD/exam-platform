@@ -64,6 +64,23 @@ async function listProfiles(supabase) {
   return rows;
 }
 
+async function countRowsByUserIds(supabase, table, column, ids, selectColumn) {
+  if (!ids.length) {
+    return 0;
+  }
+
+  const { count, error } = await supabase
+    .from(table)
+    .select(selectColumn, { count: "exact", head: true })
+    .in(column, ids);
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
+
 const env = parseEnvFile(".env.local");
 const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = env.SUPABASE_SERVICE_KEY;
@@ -85,10 +102,81 @@ const [authUsers, profiles] = await Promise.all([
 ]);
 const authIds = new Set(authUsers.map((user) => user.id));
 const profileIds = new Set(profiles.map((profile) => profile.id));
+const orphanProfiles = profiles.filter((profile) => !authIds.has(profile.id));
+const orphanProfileIds = orphanProfiles.map((profile) => profile.id);
+const orphanDependencyCounts = {
+  comments: await countRowsByUserIds(
+    supabase,
+    "comments",
+    "user_id",
+    orphanProfileIds,
+    "id",
+  ),
+  groupMembers: await countRowsByUserIds(
+    supabase,
+    "group_members",
+    "student_id",
+    orphanProfileIds,
+    "group_id",
+  ),
+  groups: await countRowsByUserIds(
+    supabase,
+    "groups",
+    "teacher_id",
+    orphanProfileIds,
+    "id",
+  ),
+  posts: await countRowsByUserIds(
+    supabase,
+    "posts",
+    "teacher_id",
+    orphanProfileIds,
+    "id",
+  ),
+  publicExamAttempts: await countRowsByUserIds(
+    supabase,
+    "public_exam_attempts",
+    "student_id",
+    orphanProfileIds,
+    "id",
+  ),
+  publicExamSets: await countRowsByUserIds(
+    supabase,
+    "public_exam_sets",
+    "admin_id",
+    orphanProfileIds,
+    "id",
+  ),
+  questions: await countRowsByUserIds(
+    supabase,
+    "questions",
+    "author_id",
+    orphanProfileIds,
+    "id",
+  ),
+  reactions: await countRowsByUserIds(
+    supabase,
+    "reactions",
+    "user_id",
+    orphanProfileIds,
+    "id",
+  ),
+  submissions: await countRowsByUserIds(
+    supabase,
+    "submissions",
+    "student_id",
+    orphanProfileIds,
+    "id",
+  ),
+};
 const adminAuthCount = authUsers.filter(
   (user) => user.app_metadata?.role === "admin",
 ).length;
 const profileRoles = profiles.reduce((counts, profile) => {
+  counts[profile.role] = (counts[profile.role] ?? 0) + 1;
+  return counts;
+}, {});
+const orphanProfileRoles = orphanProfiles.reduce((counts, profile) => {
   counts[profile.role] = (counts[profile.role] ?? 0) + 1;
   return counts;
 }, {});
@@ -101,8 +189,12 @@ console.log(
       profileRoles,
       firstAdminExists: adminAuthCount > 0,
       adminAuthCount,
-      orphanProfileCount: profiles.filter((profile) => !authIds.has(profile.id))
-        .length,
+      orphanProfileCount: orphanProfiles.length,
+      orphanProfileRoles,
+      orphanDependencyCounts,
+      orphanProfilesHaveDependencies: Object.values(orphanDependencyCounts).some(
+        (count) => count > 0,
+      ),
       authUsersMissingProfileCount: authUsers.filter(
         (user) => !profileIds.has(user.id),
       ).length,

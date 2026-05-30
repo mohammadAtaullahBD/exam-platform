@@ -18,6 +18,7 @@ const protectedRoutes = [
   "/exams/00000000-0000-4000-8000-000000000001/merit",
   "/join/0123456789abcdef0123456789abcdef",
   "/public-sets",
+  "/admin/users",
 ];
 
 function urlFor(path) {
