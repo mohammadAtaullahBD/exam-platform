@@ -2,6 +2,9 @@
 
 ## 2026-05-30
 
+- Added `scripts/archive-orphan-profiles-and-validate-fk.sql.template`, a fail-closed operational template for approved orphan profile cleanup and FK validation.
+- Verified linked Supabase DB lint now runs through the current CLI and reports no public-schema errors.
+- Re-ran linked Supabase advisors; only project-level leaked-password protection remains.
 - Added `npm run smoke:live-workflows` for opt-in live Supabase workflow verification with temporary fixtures and cleanup.
 - Added `npm run smoke:static` for static role/security/admin-hidden invariants.
 - Expanded `npm run smoke:routes` to cover dynamic protected routes and unauthenticated API gates.

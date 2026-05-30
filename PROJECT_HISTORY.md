@@ -2,6 +2,26 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-30: Orphan Profile Cleanup Playbook (Codex)
+
+### [+] Tooling & Operations
+- Added `scripts/archive-orphan-profiles-and-validate-fk.sql.template`, a fail-closed SQL template for the remaining live-data cleanup: archive orphan `public.users` rows into `private.archived_user_profiles`, delete the archived orphan rows, and validate `users_id_auth_fkey` in one transaction.
+
+### [x] Successes
+- Re-read the mandatory agent context and project memory before making the follow-up change.
+- Used a sidecar subagent audit to confirm no existing cleanup playbook was present and that a fail-closed SQL template best fits the repository conventions.
+- Verified the installed Supabase CLI is `2.102.0`.
+- Verified current CLI behavior for `supabase db lint`; linked lint is now supported.
+- Ran `npx.cmd supabase db lint --linked --schema public --level warning --fail-on none --output-format json`; it completed with no schema errors.
+- Re-ran `npx.cmd supabase db advisors --linked --level warn --fail-on none --output-format json`; the only warning is still the project-level `auth_leaked_password_protection`.
+- Ran `npm run verify:live-state`; the 4 orphan profiles remain isolated with zero direct dependent rows, and no Auth users are missing profiles.
+
+### [!] Failures/Blockers
+- Live orphan cleanup and FK validation were not executed because deleting or archiving live profile rows still requires explicit project-owner approval.
+
+### [>] Next Steps
+- After explicit approval, prepare a reviewed runnable SQL file from the template, remove the fail-closed guard, run it through `npx.cmd supabase db query --linked --file ...`, then re-run `npm run verify:live-state`, linked DB lint, and advisors.
+
 ## 2026-05-30: Authenticated Smoke Coverage and Auth FK Follow-up (Codex)
 
 ### [+] Tooling & Schema

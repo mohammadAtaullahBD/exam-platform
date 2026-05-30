@@ -1,0 +1,177 @@
+-- Fail-closed operational template for cleaning legacy profile-only users.
+--
+-- Purpose:
+--   Archive isolated public.users rows that have no matching auth.users row,
+--   delete those archived orphans, then validate public.users.users_id_auth_fkey.
+--
+-- Required approval gate:
+--   Do not make this runnable or execute it until the project owner explicitly
+--   approves live orphan profile cleanup. This mutates live data.
+--
+-- Preflight:
+--   1. Run npm run verify:live-state.
+--   2. Continue only when orphanProfilesHaveDependencies is false.
+--   3. Review this SQL and remove the fail-closed guard below only after approval.
+--
+-- Suggested execution after approval and review:
+--   npx.cmd supabase db query --linked --file scripts/archive-orphan-profiles-and-validate-fk.sql
+--
+-- Postflight:
+--   1. Run npm run verify:live-state.
+--   2. Verify public.users.users_id_auth_fkey is validated in pg_constraint.
+--   3. Re-run Supabase lint/advisors.
+
+begin;
+
+set local statement_timeout = '30s';
+
+-- FAIL-CLOSED GUARD.
+-- This template must error if executed as-is. After explicit approval, prepare a
+-- reviewed .sql file and replace this block with:
+--
+--   do $$
+--   begin
+--     raise notice 'Explicit approval recorded for orphan profile cleanup.';
+--   end
+--   $$;
+--
+do $$
+begin
+  raise exception 'Fail-closed template: explicit approval is required before archiving/deleting orphan public.users rows.';
+end
+$$;
+
+create schema if not exists private;
+
+create table if not exists private.archived_user_profiles (
+  id uuid primary key,
+  profile jsonb not null,
+  archived_reason text not null,
+  archived_at timestamptz not null default now()
+);
+
+comment on table private.archived_user_profiles is
+  'Private archive of legacy public.users rows removed after they were confirmed to have no matching auth.users row.';
+
+do $$
+declare
+  orphan_count bigint;
+  dependency_count bigint;
+begin
+  with orphan_profile_ids as (
+    select users.id
+    from public.users
+    left join auth.users auth_users on auth_users.id = users.id
+    where auth_users.id is null
+  ),
+  dependency_rows as (
+    select comments.id::text as row_key
+    from public.comments
+    join orphan_profile_ids on orphan_profile_ids.id = comments.user_id
+    union all
+    select group_members.group_id::text || ':' || group_members.student_id::text
+    from public.group_members
+    join orphan_profile_ids on orphan_profile_ids.id = group_members.student_id
+    union all
+    select groups.id::text
+    from public.groups
+    join orphan_profile_ids on orphan_profile_ids.id = groups.teacher_id
+    union all
+    select posts.id::text
+    from public.posts
+    join orphan_profile_ids on orphan_profile_ids.id = posts.teacher_id
+    union all
+    select public_exam_attempts.id::text
+    from public.public_exam_attempts
+    join orphan_profile_ids on orphan_profile_ids.id = public_exam_attempts.student_id
+    union all
+    select public_exam_sets.id::text
+    from public.public_exam_sets
+    join orphan_profile_ids on orphan_profile_ids.id = public_exam_sets.admin_id
+    union all
+    select questions.id::text
+    from public.questions
+    join orphan_profile_ids on orphan_profile_ids.id = questions.author_id
+    union all
+    select reactions.id::text
+    from public.reactions
+    join orphan_profile_ids on orphan_profile_ids.id = reactions.user_id
+    union all
+    select submissions.id::text
+    from public.submissions
+    join orphan_profile_ids on orphan_profile_ids.id = submissions.student_id
+  )
+  select
+    (select count(*) from orphan_profile_ids),
+    (select count(*) from dependency_rows)
+  into orphan_count, dependency_count;
+
+  if dependency_count > 0 then
+    raise exception 'Orphan profile cleanup stopped: % dependent rows still reference orphan profiles.', dependency_count;
+  end if;
+
+  raise notice 'Orphan profile cleanup preflight passed: % orphan profiles and % dependent rows.', orphan_count, dependency_count;
+end
+$$;
+
+with orphan_profiles as (
+  select users.*
+  from public.users
+  left join auth.users auth_users on auth_users.id = users.id
+  where auth_users.id is null
+)
+insert into private.archived_user_profiles (
+  id,
+  profile,
+  archived_reason
+)
+select
+  orphan_profiles.id,
+  to_jsonb(orphan_profiles),
+  'legacy public.users row without matching auth.users; archived before validating users_id_auth_fkey'
+from orphan_profiles
+on conflict (id) do update set
+  profile = excluded.profile,
+  archived_reason = excluded.archived_reason,
+  archived_at = now();
+
+with orphan_profiles as (
+  select users.id
+  from public.users
+  left join auth.users auth_users on auth_users.id = users.id
+  where auth_users.id is null
+)
+delete from public.users
+using orphan_profiles
+where users.id = orphan_profiles.id;
+
+alter table public.users validate constraint users_id_auth_fkey;
+
+do $$
+declare
+  remaining_orphan_count bigint;
+  fk_validated boolean;
+begin
+  select count(*)
+  into remaining_orphan_count
+  from public.users
+  left join auth.users auth_users on auth_users.id = users.id
+  where auth_users.id is null;
+
+  if remaining_orphan_count > 0 then
+    raise exception 'Orphan profile cleanup incomplete: % orphan profiles remain.', remaining_orphan_count;
+  end if;
+
+  select pg_constraint.convalidated
+  into fk_validated
+  from pg_constraint
+  where pg_constraint.conrelid = 'public.users'::regclass
+    and pg_constraint.conname = 'users_id_auth_fkey';
+
+  if fk_validated is not true then
+    raise exception 'users_id_auth_fkey was not validated.';
+  end if;
+end
+$$;
+
+commit;

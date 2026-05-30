@@ -9,6 +9,9 @@
 - [x] Older migration history is now aligned: remote `20260522180510_fix_auth_profile_sync.sql` is present locally and `20260512180000` is marked applied after live schema verification.
 - [x] Hosted Supabase Auth accepts both production and local callback URLs; `npm run verify:auth-redirects` tested temporary signups for `https://exam.ataullah.dev/auth/callback` and `http://localhost:3000/auth/callback`, then deleted the temporary Auth users.
 - [x] First real admin/bootstrap state was verified through the Auth Admin API without exposing secrets; at least one Auth user has trusted `app_metadata.role = admin`.
+- [x] A fail-closed cleanup template now exists at `scripts/archive-orphan-profiles-and-validate-fk.sql.template` for the approved live-data step: archive isolated orphan profiles into `private.archived_user_profiles`, delete those archived rows, and validate `users_id_auth_fkey`.
+- [x] Linked Supabase DB lint now runs through the current CLI and reports no public-schema errors.
+- [x] Supabase advisors re-ran successfully; the only remaining warning is still project-level leaked-password protection.
 - [!] `ADMIN_SETUP_TOKEN` is still configured locally. Remove or rotate it in local/deployment environments after confirming no further bootstrap is needed.
 - [!] Live orphan check found 4 `public.users` rows without matching Auth users. Current aggregate dependency checks show zero direct dependent rows; archive or delete those legacy/seed rows after explicit approval.
 - [!] Optional security upgrade: move the Supabase organization to Pro or higher to enable leaked-password protection.
@@ -117,4 +120,4 @@
 
 - Build richer audit/change history for role-management actions if needed.
 - Validate `users_id_auth_fkey` after the 4 orphan profile rows are archived or deleted.
-- Clean up or archive the 4 isolated orphan profile rows after explicit approval.
+- Clean up or archive the 4 isolated orphan profile rows after explicit approval using the fail-closed SQL template and postflight verification.

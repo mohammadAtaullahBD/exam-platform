@@ -17,6 +17,7 @@ Use `public.users` as the application profile table linked by `id = auth.users.i
 - AI seed users in `public.users` are not real login users unless matching Supabase Auth users exist.
 - New signup users must exist in both `auth.users` and `public.users`.
 - `password_hash` is legacy/deprecated and must not contain real passwords.
+- Legacy profile-only users are live data and must not be deleted by automation without explicit project-owner approval. The approved cleanup path should archive isolated orphan profile rows into the private schema before deleting them and validating `users_id_auth_fkey`.
 
 ## Roles
 

@@ -76,6 +76,7 @@
 - Added `scripts/smoke-static-invariants.mjs` and `npm run smoke:static` for public signup, hidden super-user route, client-secret, and trusted-role invariant checks.
 - Added `scripts/smoke-live-workflows.mjs` and `npm run smoke:live-workflows` for opt-in live Supabase workflow checks with temporary fixtures and cleanup.
 - Added `scripts/verify-auth-redirects.mjs` and `npm run verify:auth-redirects` for hosted Auth callback allow-list verification with temporary users and cleanup.
+- Added `scripts/archive-orphan-profiles-and-validate-fk.sql.template`, a fail-closed live-operations template for archiving isolated orphan profiles, deleting those archived rows, and validating `users_id_auth_fkey` after explicit approval.
 - Added migration `20260530032151_add_users_auth_fk_not_valid.sql`; linked Supabase now has `users_id_auth_fkey` as `NOT VALID`.
 - Added hidden `/admin/users` for super-users to review Auth users and update trusted roles without exposing admin navigation publicly.
 - Fetched `20260522180510_fix_auth_profile_sync.sql` into local migrations and repaired `20260512180000` migration history after verifying live schema equivalence.
@@ -91,6 +92,7 @@
 - `npm run smoke:static`
 - `npm run smoke:live-workflows`
 - `npx tsc --noEmit --incremental false`
+- `npx.cmd supabase db lint --linked --schema public --level warning --fail-on none --output-format json`
 - `npx.cmd supabase migration list --linked`
 - `npx.cmd supabase db advisors --linked --level warn --fail-on none --output-format json`
 - `npx.cmd supabase gen types typescript --linked --schema public` regenerated types through a temp file; no `types/database.ts` content diff was produced.
@@ -153,4 +155,4 @@ The 2026-05-29 migrations were applied to the linked Supabase project with `npx.
 
 Live Auth/profile verification with `npm run verify:live-state` confirmed 4 Auth users, 8 profile rows, at least one Auth admin, and no Auth users missing profiles. It also found 4 orphan `public.users` profiles without matching Auth users, with zero direct dependent rows across the checked feature tables. `ADMIN_SETUP_TOKEN` is still configured locally, and legacy duplicate env names are still present in `.env.local`. The secret-bearing env file was not edited.
 
-Supabase advisors run successfully with the installed CLI (`2.102.0`). The full linked advisor run reports only `auth_leaked_password_protection`; performance advisors report no issues. After applying `20260530032151_add_users_auth_fk_not_valid.sql`, direct SQL verified the FK exists, migration history was aligned, and linked types were regenerated with no content diff. Local Docker/Supabase is unavailable, so local database linting still cannot run.
+Supabase advisors run successfully with the installed CLI (`2.102.0`). The full linked advisor run reports only `auth_leaked_password_protection`; performance advisors report no issues. After applying `20260530032151_add_users_auth_fk_not_valid.sql`, direct SQL verified the FK exists, migration history was aligned, and linked types were regenerated with no content diff. Linked DB lint now works through the current CLI and reports no public-schema errors; local Docker/Supabase remains unavailable for local-only linting.
