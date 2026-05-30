@@ -11,6 +11,7 @@
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "smoke:static": "node scripts/smoke-static-invariants.mjs",
     "smoke:live-workflows": "node scripts/smoke-live-workflows.mjs",
+    "verify:auth-redirects": "node scripts/verify-auth-redirects.mjs",
     "verify:live-state": "node scripts/verify-live-state.mjs",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build"

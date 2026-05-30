@@ -8,6 +8,7 @@
 - Added migration `20260530032151_add_users_auth_fk_not_valid.sql` to enforce new `public.users` rows against `auth.users` while existing orphan profiles remain unvalidated.
 - Fetched remote migration `20260522180510_fix_auth_profile_sync.sql` and repaired the older migration-history mismatch.
 - Added hidden `/admin/users` user-role management for super-users.
+- Added `npm run verify:auth-redirects` to verify hosted Supabase Auth callback allow-list behavior with temporary users and cleanup.
 
 ## 2026-05-29
 

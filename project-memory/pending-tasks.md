@@ -7,7 +7,7 @@
 - [x] The 2026-05-29 migrations were applied and later confirmed aligned in linked migration history.
 - [x] The intended `public.users(id) -> auth.users(id)` FK now exists live as `NOT VALID`, so new profile rows are enforced while legacy orphans remain.
 - [x] Older migration history is now aligned: remote `20260522180510_fix_auth_profile_sync.sql` is present locally and `20260512180000` is marked applied after live schema verification.
-- [!] Local callback URL `http://localhost:3000/auth/callback` is documented and now present in local `supabase/config.toml`; hosted dashboard config still needs live verification when Supabase access is stable.
+- [x] Hosted Supabase Auth accepts both production and local callback URLs; `npm run verify:auth-redirects` tested temporary signups for `https://exam.ataullah.dev/auth/callback` and `http://localhost:3000/auth/callback`, then deleted the temporary Auth users.
 - [x] First real admin/bootstrap state was verified through the Auth Admin API without exposing secrets; at least one Auth user has trusted `app_metadata.role = admin`.
 - [!] `ADMIN_SETUP_TOKEN` is still configured locally. Remove or rotate it in local/deployment environments after confirming no further bootstrap is needed.
 - [!] Live orphan check found 4 `public.users` rows without matching Auth users. Current aggregate dependency checks show zero direct dependent rows; archive or delete those legacy/seed rows after explicit approval.
@@ -117,5 +117,4 @@
 
 - Build richer audit/change history for role-management actions if needed.
 - Validate `users_id_auth_fkey` after the 4 orphan profile rows are archived or deleted.
-- Confirm hosted Auth redirect URLs directly in the Supabase dashboard if deployment verification is needed.
 - Clean up or archive the 4 isolated orphan profile rows after explicit approval.

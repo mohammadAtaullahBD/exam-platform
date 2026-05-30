@@ -26,6 +26,7 @@ This file tracks the evolution of the Exam Platform, serving as a shared memory 
 - Re-ran Supabase advisors; the only remaining warning is the project-level `auth_leaked_password_protection`.
 - Regenerated linked Supabase types safely through a temp file; `types/database.ts` had no content diff because the new migration only adds an FK.
 - `npm run typecheck`, `npm run lint`, and `npm run smoke:static` passed after adding the hidden user-management UI.
+- Added `scripts/verify-auth-redirects.mjs` and verified hosted Supabase Auth accepts both `https://exam.ataullah.dev/auth/callback` and `http://localhost:3000/auth/callback`; both temporary Auth users were deleted afterward.
 
 ### [!] Failures/Blockers
 - The new auth FK cannot be validated until the 4 orphan `public.users` rows are archived or deleted.

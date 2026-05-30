@@ -75,6 +75,7 @@
 - `npm run verify:live-state` now also reports orphan profile role counts and aggregate direct dependency counts.
 - Added `scripts/smoke-static-invariants.mjs` and `npm run smoke:static` for public signup, hidden super-user route, client-secret, and trusted-role invariant checks.
 - Added `scripts/smoke-live-workflows.mjs` and `npm run smoke:live-workflows` for opt-in live Supabase workflow checks with temporary fixtures and cleanup.
+- Added `scripts/verify-auth-redirects.mjs` and `npm run verify:auth-redirects` for hosted Auth callback allow-list verification with temporary users and cleanup.
 - Added migration `20260530032151_add_users_auth_fk_not_valid.sql`; linked Supabase now has `users_id_auth_fkey` as `NOT VALID`.
 - Added hidden `/admin/users` for super-users to review Auth users and update trusted roles without exposing admin navigation publicly.
 - Fetched `20260522180510_fix_auth_profile_sync.sql` into local migrations and repaired `20260512180000` migration history after verifying live schema equivalence.
@@ -86,12 +87,14 @@
 - `npm run build`
 - `npm run check`
 - `npm run verify:live-state`
+- `npm run verify:auth-redirects`
 - `npm run smoke:static`
 - `npm run smoke:live-workflows`
 - `npx tsc --noEmit --incremental false`
 - `npx.cmd supabase migration list --linked`
 - `npx.cmd supabase db advisors --linked --level warn --fail-on none --output-format json`
 - `npx.cmd supabase gen types typescript --linked --schema public` regenerated types through a temp file; no `types/database.ts` content diff was produced.
+- Hosted Auth accepted both `https://exam.ataullah.dev/auth/callback` and `http://localhost:3000/auth/callback` in temporary signups; the temporary Auth users were deleted.
 - Direct linked SQL verified `users_id_auth_fkey` exists on `public.users` and is intentionally unvalidated.
 - Direct linked SQL checks confirmed:
   - RLS is enabled and policies exist on submissions, submission_answers, reactions, comments, public_exam_sets, public_exam_set_questions, public_exam_attempts, and public_exam_attempt_answers.
