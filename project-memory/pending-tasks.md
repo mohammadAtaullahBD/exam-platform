@@ -16,9 +16,10 @@
 - [x] Live workflow smoke cleanup now verifies temporary profile rows are gone; the latest sequential `npm run verify:live-state` reports `smokeOrphanProfileCount: 0`.
 - [x] Protected-route smoke now covers 22 routes, including profile edit/student profile/teacher profile routes.
 - [x] The 4 isolated legacy orphan profiles were archived into `private.archived_user_profiles`, deleted from `public.users`, and `users_id_auth_fkey` was validated after explicit approval.
-- [!] `ADMIN_SETUP_TOKEN` is still configured locally. Remove or rotate it in local/deployment environments after confirming no further bootstrap is needed.
-- [!] A post-cleanup linked migration-list/lint rerun hit Supabase pooler `ECIRCUITBREAKER`; retry those remote checks after the circuit breaker clears.
-- [!] Optional security upgrade: move the Supabase organization to Pro or higher to enable leaked-password protection.
+- [x] Post-cleanup linked migration list and linked DB lint now pass after the temporary Supabase pooler circuit breaker cleared.
+- [x] Local `.env.local` no longer contains `ADMIN_SETUP_TOKEN`.
+- [x] Local `.env.local` no longer contains legacy duplicate env names: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NEXTAUTH_SECRET`, or `NEXTAUTH_URL`.
+- [>] Optional security upgrade: move the Supabase organization to Pro or higher to enable leaked-password protection.
 
 ---
 
@@ -123,5 +124,4 @@
 ## Ongoing
 
 - Build richer audit/change history for role-management actions if needed.
-- Re-run linked migration list and linked DB lint after the Supabase pooler circuit breaker clears.
-- Remove or rotate `ADMIN_SETUP_TOKEN` after confirming no further bootstrap operations are needed.
+- Optional security upgrade: enable Supabase leaked-password protection if the project plan supports it.

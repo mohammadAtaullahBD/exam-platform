@@ -13,6 +13,7 @@ Copy `.env.example` to `.env.local` for local development.
 
 - `ADMIN_SETUP_TOKEN`: long random secret used only by `/api/admin/bootstrap` while creating the first admin.
 - Remove or rotate `ADMIN_SETUP_TOKEN` after the first real admin exists.
+- The local `.env.local` no longer contains `ADMIN_SETUP_TOKEN` after first-admin verification.
 
 ## Optional / Future
 

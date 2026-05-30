@@ -86,6 +86,11 @@
   - Those orphan profile rows were deleted from `public.users`.
   - `users_id_auth_fkey` was validated.
   - Postflight live state shows 4 Auth users, 4 profile rows, no orphan profiles, no Auth users missing profiles, and the real Auth admin still exists.
+- Remaining cleanup blockers are cleared:
+  - Linked migration list now succeeds after the temporary pooler circuit breaker.
+  - Linked public-schema DB lint now succeeds after the temporary pooler circuit breaker.
+  - Local `.env.local` no longer contains `ADMIN_SETUP_TOKEN`.
+  - Local `.env.local` no longer contains legacy duplicate env names: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NEXTAUTH_SECRET`, or `NEXTAUTH_URL`.
 
 ## Verified
 
@@ -162,6 +167,6 @@ The Exams migration was applied with `supabase db query` and then marked applied
 
 The 2026-05-29 migrations were applied to the linked Supabase project with `npx.cmd supabase db query --linked --file ...` and marked applied with `npx.cmd supabase migration repair --linked --status applied 20260529091256 20260529091306 20260529091313`. `types/database.ts` was regenerated from the linked schema afterward. A post-repair `npx.cmd supabase migration list --linked` initially failed with temp-role auth failures followed by pooler `ECIRCUITBREAKER`, so retry loops were stopped per project rule. Later follow-up work fetched the remote `20260522180510` migration locally, verified `20260512180000` live effects, repaired history, and confirmed current migration history is aligned locally/remotely through `20260530083805`.
 
-Live Auth/profile verification with `npm run verify:live-state` now confirms 4 Auth users, 4 profile rows, at least one Auth admin, no Auth users missing profiles, and 0 orphan `public.users` profiles. `ADMIN_SETUP_TOKEN` is still configured locally, and legacy duplicate env names are still present in `.env.local`. The secret-bearing env file was not edited.
+Live Auth/profile verification with `npm run verify:live-state` now confirms 4 Auth users, 4 profile rows, at least one Auth admin, no Auth users missing profiles, 0 orphan `public.users` profiles, `adminSetupTokenConfigured: false`, and no legacy duplicate env names in `.env.local`.
 
-Supabase advisors run successfully with the installed CLI (`2.102.0`). The full linked advisor run after the database-time hardening migration reports only `auth_leaked_password_protection`; performance advisors previously reported no issues. After applying `20260530083805_database_time_and_post_length_hardening.sql`, migration list, linked DB lint, and linked advisors all succeeded. After applying `20260530032151_add_users_auth_fk_not_valid.sql`, direct SQL verified the FK exists, migration history was aligned, and linked types were regenerated with no content diff. Linked DB lint now works through the current CLI and reports no public-schema errors; local Docker/Supabase remains unavailable for local-only linting. After approved orphan cleanup, direct SQL verified the FK is validated and 0 orphan profiles remain, but the immediate post-cleanup linked migration-list/lint rerun hit Supabase pooler `ECIRCUITBREAKER` and should be retried after the circuit breaker clears.
+Supabase advisors run successfully with the installed CLI (`2.102.0`). The full linked advisor run after the database-time hardening migration reports only `auth_leaked_password_protection`; performance advisors previously reported no issues. After applying `20260530083805_database_time_and_post_length_hardening.sql`, migration list, linked DB lint, and linked advisors all succeeded. After applying `20260530032151_add_users_auth_fk_not_valid.sql`, direct SQL verified the FK exists, migration history was aligned, and linked types were regenerated with no content diff. Linked DB lint now works through the current CLI and reports no public-schema errors; local Docker/Supabase remains unavailable for local-only linting. After approved orphan cleanup, direct SQL verified the FK is validated and 0 orphan profiles remain. A later post-cleanup rerun confirmed linked migration list and linked DB lint are both successful again after the temporary pooler circuit breaker cleared.

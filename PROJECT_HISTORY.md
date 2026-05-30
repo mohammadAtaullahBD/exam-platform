@@ -2,6 +2,24 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-30: Final Blocker Clearance (Codex)
+
+### [x] Successes
+- Re-read the mandatory project context and Supabase skill before clearing the remaining blockers.
+- Re-ran `npx.cmd supabase migration list --linked`; local and remote migration history are aligned through `20260530083805`.
+- Re-ran `npx.cmd supabase db lint --linked --schema public --level warning --fail-on none --output-format json`; no public-schema errors were found.
+- Removed `ADMIN_SETUP_TOKEN` from local `.env.local` without printing or committing its value.
+- Removed legacy local duplicate env names from `.env.local`: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NEXTAUTH_SECRET`, and `NEXTAUTH_URL`.
+- Re-ran `npm run verify:live-state`; it reports 4 Auth users, 4 profile rows, 0 orphan profiles, no Auth users missing profiles, `adminSetupTokenConfigured: false`, and no legacy duplicate env vars.
+- Re-ran Supabase advisors; the only warning remains project-level `auth_leaked_password_protection`.
+- Re-ran `npm run smoke:static`, `npm run check`, and `npm run smoke:routes`; all passed.
+
+### [!] Failures/Blockers
+- No implementation or cleanup blockers remain. Supabase leaked-password protection remains an optional project-plan/security setting that requires enabling in Supabase Auth settings/plan support.
+
+### [>] Next Steps
+- Optionally enable Supabase leaked-password protection if the project plan supports it.
+
 ## 2026-05-30: Approved Orphan Profile Cleanup (Codex)
 
 ### [x] Successes

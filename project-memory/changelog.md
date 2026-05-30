@@ -2,6 +2,7 @@
 
 ## 2026-05-30
 
+- Cleared the remaining cleanup blockers: linked migration list and linked DB lint now pass after pooler recovery, and local `.env.local` no longer contains `ADMIN_SETUP_TOKEN` or legacy duplicate env names.
 - Archived the 4 isolated legacy `public.users` orphan profiles into `private.archived_user_profiles`, deleted the orphan profile rows, and validated `users_id_auth_fkey`.
 - Added migration `20260530083805_database_time_and_post_length_hardening.sql` for database-time reads and post length hardening.
 - Switched exam, progress, and practice state calculations to use Supabase database time through `public.database_now()`.
