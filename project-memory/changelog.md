@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-05-30
+
+- Added `npm run smoke:live-workflows` for opt-in live Supabase workflow verification with temporary fixtures and cleanup.
+- Added `npm run smoke:static` for static role/security/admin-hidden invariants.
+- Expanded `npm run smoke:routes` to cover dynamic protected routes and unauthenticated API gates.
+- Added migration `20260530032151_add_users_auth_fk_not_valid.sql` to enforce new `public.users` rows against `auth.users` while existing orphan profiles remain unvalidated.
+
 ## 2026-05-29
 
 - Added student exam-taking routes with countdown, active-window submission, auto-submit attempt, and submission scoring.

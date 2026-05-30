@@ -9,10 +9,14 @@ const protectedRoutes = [
   "/posts",
   "/student/groups",
   "/student/exams",
+  "/student/exams/00000000-0000-4000-8000-000000000001",
+  "/student/exams/00000000-0000-4000-8000-000000000001/merit",
   "/student/progress",
   "/student/practice",
   "/student/feed",
   "/student/public-exams",
+  "/exams/00000000-0000-4000-8000-000000000001/merit",
+  "/join/0123456789abcdef0123456789abcdef",
   "/public-sets",
 ];
 
@@ -29,6 +33,25 @@ async function assertPublicPage(path) {
 
   if (response.status !== 200) {
     throw new Error(`${path} expected 200, received ${response.status}`);
+  }
+}
+
+async function assertEndpointStatus(path, init, expectedStatuses) {
+  const response = await fetch(urlFor(path), {
+    redirect: "manual",
+    ...init,
+    headers: {
+      "content-type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (!expectedStatuses.includes(response.status)) {
+    throw new Error(
+      `${path} expected one of ${expectedStatuses.join(", ")}, received ${
+        response.status
+      }`,
+    );
   }
 }
 
@@ -64,7 +87,27 @@ async function assertInvalidSignupRejected() {
 await assertPublicPage("/");
 await assertPublicPage("/signin");
 await assertPublicPage("/signup");
+await assertPublicPage("/auth/check-email");
+await assertPublicPage("/auth/error");
+await assertEndpointStatus("/api/health", { method: "GET" }, [200, 503]);
 await assertInvalidSignupRejected();
+await assertEndpointStatus("/api/auth/sync-profile", { method: "POST" }, [401]);
+await assertEndpointStatus(
+  "/api/admin/users/00000000-0000-4000-8000-000000000001/role",
+  {
+    method: "PATCH",
+    body: JSON.stringify({ role: "teacher" }),
+  },
+  [401],
+);
+await assertEndpointStatus(
+  "/api/admin/bootstrap",
+  {
+    method: "POST",
+    body: JSON.stringify({ email: "smoke@example.test" }),
+  },
+  [401, 503],
+);
 
 for (const route of protectedRoutes) {
   await assertProtectedRedirect(route);

@@ -5,6 +5,7 @@
 - [x] Profile schema and posts alignment are functionally applied in the linked Supabase project per prior verification.
 - [x] Production `/auth/callback` redirect was restored in hosted Supabase Auth config per prior verification.
 - [x] The 2026-05-29 migrations were applied and later confirmed aligned in linked migration history.
+- [x] The intended `public.users(id) -> auth.users(id)` FK now exists live as `NOT VALID`, so new profile rows are enforced while legacy orphans remain.
 - [!] Older migration history still contains a known mismatch: local-only `20260512180000` and remote-only `20260522180510`.
 - [!] Local callback URL `http://localhost:3000/auth/callback` is documented and now present in local `supabase/config.toml`; hosted dashboard config still needs live verification when Supabase access is stable.
 - [x] First real admin/bootstrap state was verified through the Auth Admin API without exposing secrets; at least one Auth user has trusted `app_metadata.role = admin`.
@@ -116,6 +117,7 @@
 
 - Resolve or document the older migration-history mismatch between local-only `20260512180000` and remote-only `20260522180510`.
 - Build an admin UI over `/api/admin/users/[userId]/role`.
-- Add authenticated end-to-end tests for role gates, exam submission, merit visibility, social permissions, and public exam attempts.
+- Re-run migration-list/advisor/type generation after the Supabase pooler clears from `ECIRCUITBREAKER`.
+- Validate `users_id_auth_fkey` after the 4 orphan profile rows are archived or deleted.
 - Confirm hosted Auth redirect URLs directly in the Supabase dashboard if deployment verification is needed.
 - Clean up or archive the 4 orphan profile rows after a dependency check.

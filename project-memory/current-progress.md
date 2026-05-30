@@ -72,6 +72,9 @@
 - Dashboard navigation now links role-appropriate teacher/student workspaces while keeping hidden super-user routes unlinked.
 - Added `scripts/smoke-routes.mjs` and `npm run smoke:routes` for unauthenticated protected-route and invalid admin-signup smoke coverage.
 - Added `scripts/verify-live-state.mjs` and `npm run verify:live-state` for aggregate Auth/profile verification without printing secrets.
+- Added `scripts/smoke-static-invariants.mjs` and `npm run smoke:static` for public signup, hidden super-user route, client-secret, and trusted-role invariant checks.
+- Added `scripts/smoke-live-workflows.mjs` and `npm run smoke:live-workflows` for opt-in live Supabase workflow checks with temporary fixtures and cleanup.
+- Added migration `20260530032151_add_users_auth_fk_not_valid.sql`; linked Supabase now has `users_id_auth_fkey` as `NOT VALID`.
 
 ## Verified
 
@@ -80,9 +83,12 @@
 - `npm run build`
 - `npm run check`
 - `npm run verify:live-state`
+- `npm run smoke:static`
+- `npm run smoke:live-workflows`
 - `npx tsc --noEmit --incremental false`
 - `npx.cmd supabase migration list --linked`
 - `npx.cmd supabase db advisors --linked --level warn --fail-on none --output-format json`
+- Direct linked SQL verified `users_id_auth_fkey` exists on `public.users` and is intentionally unvalidated.
 - Direct linked SQL checks confirmed:
   - RLS is enabled and policies exist on submissions, submission_answers, reactions, comments, public_exam_sets, public_exam_set_questions, public_exam_attempts, and public_exam_attempt_answers.
   - FK/supporting indexes exist for the new Phase 3-5 tables.
@@ -111,7 +117,12 @@
   - `/student/practice` redirects unauthenticated users to sign-in.
   - `/student/feed` redirects unauthenticated users to sign-in.
   - `/student/public-exams` redirects unauthenticated users to sign-in.
+  - `/student/exams/[id]` redirects unauthenticated users to sign-in.
+  - `/student/exams/[id]/merit` redirects unauthenticated users to sign-in.
+  - `/exams/[id]/merit` redirects unauthenticated users to sign-in.
   - `/public-sets` redirects unauthenticated users to sign-in.
+  - unauthenticated sync-profile and role-promotion API calls return 401.
+  - bootstrap without a valid setup token returns 401 or 503 depending local token configuration.
   - A teacher can create a question through `/questions`; a temporary verification question was deleted afterward.
 
 ## Note
@@ -134,4 +145,4 @@ The 2026-05-29 migrations were applied to the linked Supabase project with `npx.
 
 Live Auth/profile verification with `npm run verify:live-state` confirmed 4 Auth users, 8 profile rows, at least one Auth admin, and no Auth users missing profiles. It also found 4 orphan `public.users` profiles without matching Auth users, `ADMIN_SETUP_TOKEN` still configured locally, and legacy duplicate env names still present in `.env.local`. The secret-bearing env file was not edited.
 
-Supabase advisors now run successfully with the installed CLI (`2.102.0`). The full linked advisor run reports only `auth_leaked_password_protection`; performance advisors report no issues. Local Docker/Supabase is unavailable, so local database linting still cannot run.
+Supabase advisors ran successfully with the installed CLI (`2.102.0`) before the 2026-05-30 auth FK follow-up. The full linked advisor run reported only `auth_leaked_password_protection`; performance advisors reported no issues. After applying `20260530032151_add_users_auth_fk_not_valid.sql`, direct SQL verified the FK exists, but migration-list/advisor/type-generation follow-up was interrupted by Supabase pooler `ECIRCUITBREAKER`/timeout. `types/database.ts` was restored to the committed generated file because the FK-only migration does not change public table columns. Local Docker/Supabase is unavailable, so local database linting still cannot run.

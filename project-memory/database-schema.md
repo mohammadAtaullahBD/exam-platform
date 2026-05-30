@@ -98,6 +98,12 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Allows hidden super-users to manage sets, authenticated users to read published sets, and students to read only their own public attempt records.
 - Keeps public attempt writes behind server actions and service-role inserts after role checks so scores are not accepted directly from the Data API.
 
+`supabase/migrations/20260530032151_add_users_auth_fk_not_valid.sql` follows up the auth/profile schema:
+
+- Adds the intended `users_id_auth_fkey` from `public.users(id)` to `auth.users(id)` with `on delete cascade`.
+- Leaves the FK `NOT VALID` so the 4 known legacy orphan profile rows do not block the migration.
+- Enforces the FK for new/updated profile rows; validate it only after orphan profiles are archived or deleted.
+
 ## RLS Requirements
 
 - Enable RLS on all public tables.
