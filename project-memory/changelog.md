@@ -6,6 +6,7 @@
 - Switched exam, progress, and practice state calculations to use Supabase database time through `public.database_now()`.
 - Expanded protected-route smoke coverage from 18 to 22 routes.
 - Hardened live workflow smoke cleanup and live-state reporting so temporary smoke profile residue is detected without exposing PII.
+- Re-ran linked Supabase advisors after the database-time hardening migration; only project-level leaked-password protection remains.
 - Added `scripts/archive-orphan-profiles-and-validate-fk.sql.template`, a fail-closed operational template for approved orphan profile cleanup and FK validation.
 - Verified linked Supabase DB lint now runs through the current CLI and reports no public-schema errors.
 - Re-ran linked Supabase advisors; only project-level leaked-password protection remains.

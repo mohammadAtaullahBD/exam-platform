@@ -27,11 +27,21 @@ This file tracks the evolution of the Exam Platform, serving as a shared memory 
 - `git diff --check` passed with only line-ending warnings.
 
 ### [!] Failures/Blockers
-- The latest post-migration `npx.cmd supabase db advisors --linked --level warn --fail-on none --output-format json` hit Supabase pooler auth failures and then `ECIRCUITBREAKER`; retry loops were stopped per project rule. The prior same-day advisors run before this hardening migration reported only `auth_leaked_password_protection`.
 - Live orphan cleanup and `users_id_auth_fkey` validation still require explicit project-owner approval.
 
 ### [>] Next Steps
-- Re-run Supabase advisors after the pooler block clears.
+- After explicit approval, use the fail-closed orphan cleanup template to archive/delete the 4 isolated legacy profiles and validate `users_id_auth_fkey`.
+
+## 2026-05-30: Advisor Recheck After Pooler Recovery (Codex)
+
+### [x] Successes
+- Re-ran `npx.cmd supabase db advisors --linked --level warn --fail-on none --output-format json` after the earlier pooler `ECIRCUITBREAKER`; it completed successfully.
+- The only advisor warning remains the project-level `auth_leaked_password_protection` setting.
+
+### [!] Failures/Blockers
+- Live orphan cleanup and `users_id_auth_fkey` validation still require explicit project-owner approval.
+
+### [>] Next Steps
 - After explicit approval, use the fail-closed orphan cleanup template to archive/delete the 4 isolated legacy profiles and validate `users_id_auth_fkey`.
 
 ## 2026-05-30: Orphan Profile Cleanup Playbook (Codex)

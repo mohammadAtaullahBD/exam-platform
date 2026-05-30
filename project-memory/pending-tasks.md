@@ -11,13 +11,12 @@
 - [x] First real admin/bootstrap state was verified through the Auth Admin API without exposing secrets; at least one Auth user has trusted `app_metadata.role = admin`.
 - [x] A fail-closed cleanup template now exists at `scripts/archive-orphan-profiles-and-validate-fk.sql.template` for the approved live-data step: archive isolated orphan profiles into `private.archived_user_profiles`, delete those archived rows, and validate `users_id_auth_fkey`.
 - [x] Linked Supabase DB lint now runs through the current CLI and reports no public-schema errors.
-- [x] Supabase advisors re-ran successfully before the database-time hardening migration; the only warning was project-level leaked-password protection.
+- [x] Supabase advisors re-ran successfully after the database-time hardening migration; the only warning was project-level leaked-password protection.
 - [x] Server-side exam/progress/practice state checks now use linked Supabase database time via `public.database_now()`.
 - [x] Live workflow smoke cleanup now verifies temporary profile rows are gone; the latest sequential `npm run verify:live-state` reports `smokeOrphanProfileCount: 0`.
 - [x] Protected-route smoke now covers 22 routes, including profile edit/student profile/teacher profile routes.
 - [!] `ADMIN_SETUP_TOKEN` is still configured locally. Remove or rotate it in local/deployment environments after confirming no further bootstrap is needed.
 - [!] Live orphan check found 4 `public.users` rows without matching Auth users. Current aggregate dependency checks show zero direct dependent rows; archive or delete those legacy/seed rows after explicit approval.
-- [!] Re-run Supabase advisors after the pooler clears; the latest advisor run after `20260530083805` hit `ECIRCUITBREAKER`.
 - [!] Optional security upgrade: move the Supabase organization to Pro or higher to enable leaked-password protection.
 
 ---
