@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import { toUserRole } from "@/lib/roles";
+import { getDatabaseNowMs } from "@/lib/supabase/database-time";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
@@ -51,8 +52,8 @@ async function requireStudent(callbackUrl: string) {
   return { supabase, user };
 }
 
-function isClosed(endsAt: string) {
-  return Date.now() >= new Date(endsAt).getTime();
+function isClosed(endsAt: string, databaseNowMs: number) {
+  return databaseNowMs >= new Date(endsAt).getTime();
 }
 
 function percent(score: number, total: number) {
@@ -121,8 +122,11 @@ export async function getStudentProgress(
     };
   }
 
+  const databaseNowMs = await getDatabaseNowMs(supabase);
   const closedRows = data.filter((submission) => {
-    return submission.exams ? isClosed(submission.exams.ends_at) : false;
+    return submission.exams
+      ? isClosed(submission.exams.ends_at, databaseNowMs)
+      : false;
   });
   const examIds = [...new Set(closedRows.map((submission) => submission.exam_id))];
   let rankRows: RankSubmissionRow[] = [];
@@ -186,4 +190,3 @@ export async function getStudentProgress(
     results,
   };
 }
-

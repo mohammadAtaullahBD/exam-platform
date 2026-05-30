@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import { toUserRole } from "@/lib/roles";
+import { getDatabaseNowMs } from "@/lib/supabase/database-time";
 import { createClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/types/database";
 
@@ -58,8 +59,8 @@ async function requireStudent(callbackUrl: string) {
   return { supabase, user };
 }
 
-function isClosed(endsAt: string) {
-  return Date.now() >= new Date(endsAt).getTime();
+function isClosed(endsAt: string, databaseNowMs: number) {
+  return databaseNowMs >= new Date(endsAt).getTime();
 }
 
 function optionsFromJson(options: Json): string[] {
@@ -85,8 +86,11 @@ export async function getPracticeQuestions(callbackUrl = "/student/practice") {
     return [];
   }
 
+  const databaseNowMs = await getDatabaseNowMs(supabase);
   const closedSubmissions = submissions.filter((submission) => {
-    return submission.exams ? isClosed(submission.exams.ends_at) : false;
+    return submission.exams
+      ? isClosed(submission.exams.ends_at, databaseNowMs)
+      : false;
   });
   const submissionIds = closedSubmissions.map((submission) => submission.id);
 

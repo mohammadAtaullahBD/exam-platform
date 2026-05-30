@@ -72,10 +72,9 @@ src/
 │   ├── supabase/
 │   │   ├── client.ts      # Browser client
 │   │   ├── server.ts      # Server client (cookies)
-│   │   └── admin.ts       # Service role client (admin only)
-│   ├── auth/
-│   │   ├── config.ts
-│   │   └── guards.ts      # requireRole() helpers
+│   │   ├── admin.ts       # Service role client (admin only)
+│   │   └── database-time.ts # Database clock helper
+│   ├── roles.ts           # Shared role parsing helpers
 │   ├── validations/       # Zod schemas
 │   └── utils.ts
 │

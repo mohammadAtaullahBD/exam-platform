@@ -78,6 +78,7 @@
 - Added `scripts/verify-auth-redirects.mjs` and `npm run verify:auth-redirects` for hosted Auth callback allow-list verification with temporary users and cleanup.
 - Added `scripts/archive-orphan-profiles-and-validate-fk.sql.template`, a fail-closed live-operations template for archiving isolated orphan profiles, deleting those archived rows, and validating `users_id_auth_fkey` after explicit approval.
 - Added migration `20260530032151_add_users_auth_fk_not_valid.sql`; linked Supabase now has `users_id_auth_fkey` as `NOT VALID`.
+- Added migration `20260530083805_database_time_and_post_length_hardening.sql`; linked Supabase now exposes authenticated `public.database_now()` for server-side database-time exam state checks and enforces the app's 2000-character post limit at the database layer.
 - Added hidden `/admin/users` for super-users to review Auth users and update trusted roles without exposing admin navigation publicly.
 - Fetched `20260522180510_fix_auth_profile_sync.sql` into local migrations and repaired `20260512180000` migration history after verifying live schema equivalence.
 
@@ -91,6 +92,7 @@
 - `npm run verify:auth-redirects`
 - `npm run smoke:static`
 - `npm run smoke:live-workflows`
+- `npm run smoke:routes` against a local production server, currently covering 22 protected routes.
 - `npx tsc --noEmit --incremental false`
 - `npx.cmd supabase db lint --linked --schema public --level warning --fail-on none --output-format json`
 - `npx.cmd supabase migration list --linked`
@@ -114,6 +116,7 @@
   - `/profile` redirects unauthenticated users to `/signin?callbackUrl=%2Fprofile`.
   - `/profile/edit` redirects unauthenticated users to `/signin?callbackUrl=%2Fprofile%2Fedit`.
   - `/student/profile` redirects unauthenticated users to sign-in.
+  - `/student/profile/edit` redirects unauthenticated users to sign-in.
   - `/teacher/[id]` redirects unauthenticated users to sign-in.
   - `/groups` redirects unauthenticated users to sign-in.
   - `/student/groups` redirects unauthenticated users to sign-in.
@@ -151,8 +154,8 @@ Question creation initially failed because the `public.questions` check constrai
 
 The Exams migration was applied with `supabase db query` and then marked applied with `supabase migration repair`, following the established workflow for this project. Migration list verification and type generation succeeded, and performance advisors reported no warnings. Later security advisor and direct verification queries hit the recurring Supabase pooler `ECIRCUITBREAKER` temporary authentication block.
 
-The 2026-05-29 migrations were applied to the linked Supabase project with `npx.cmd supabase db query --linked --file ...` and marked applied with `npx.cmd supabase migration repair --linked --status applied 20260529091256 20260529091306 20260529091313`. `types/database.ts` was regenerated from the linked schema afterward. A post-repair `npx.cmd supabase migration list --linked` initially failed with temp-role auth failures followed by pooler `ECIRCUITBREAKER`, so retry loops were stopped per project rule. A later follow-up `migration list` succeeded and confirmed the 2026-05-29 migrations are aligned locally/remotely. The older migration-history mismatch remains: local-only `20260512180000` and remote-only `20260522180510`.
+The 2026-05-29 migrations were applied to the linked Supabase project with `npx.cmd supabase db query --linked --file ...` and marked applied with `npx.cmd supabase migration repair --linked --status applied 20260529091256 20260529091306 20260529091313`. `types/database.ts` was regenerated from the linked schema afterward. A post-repair `npx.cmd supabase migration list --linked` initially failed with temp-role auth failures followed by pooler `ECIRCUITBREAKER`, so retry loops were stopped per project rule. Later follow-up work fetched the remote `20260522180510` migration locally, verified `20260512180000` live effects, repaired history, and confirmed current migration history is aligned locally/remotely through `20260530083805`.
 
-Live Auth/profile verification with `npm run verify:live-state` confirmed 4 Auth users, 8 profile rows, at least one Auth admin, and no Auth users missing profiles. It also found 4 orphan `public.users` profiles without matching Auth users, with zero direct dependent rows across the checked feature tables. `ADMIN_SETUP_TOKEN` is still configured locally, and legacy duplicate env names are still present in `.env.local`. The secret-bearing env file was not edited.
+Live Auth/profile verification with `npm run verify:live-state` confirmed 4 Auth users, 8 profile rows, at least one Auth admin, and no Auth users missing profiles. It also found 4 orphan `public.users` profiles without matching Auth users, with zero direct dependent rows across the checked feature tables and `smokeOrphanProfileCount: 0` after live workflow smoke cleanup. `ADMIN_SETUP_TOKEN` is still configured locally, and legacy duplicate env names are still present in `.env.local`. The secret-bearing env file was not edited.
 
-Supabase advisors run successfully with the installed CLI (`2.102.0`). The full linked advisor run reports only `auth_leaked_password_protection`; performance advisors report no issues. After applying `20260530032151_add_users_auth_fk_not_valid.sql`, direct SQL verified the FK exists, migration history was aligned, and linked types were regenerated with no content diff. Linked DB lint now works through the current CLI and reports no public-schema errors; local Docker/Supabase remains unavailable for local-only linting.
+Supabase advisors run successfully with the installed CLI (`2.102.0`). The full linked advisor run before the database-time hardening migration reported only `auth_leaked_password_protection`; performance advisors reported no issues. After applying `20260530083805_database_time_and_post_length_hardening.sql`, migration list and linked DB lint succeeded, but the advisor re-run hit Supabase pooler `ECIRCUITBREAKER`, so retry loops were stopped and advisors should be re-run after the pooler clears. After applying `20260530032151_add_users_auth_fk_not_valid.sql`, direct SQL verified the FK exists, migration history was aligned, and linked types were regenerated with no content diff. Linked DB lint now works through the current CLI and reports no public-schema errors; local Docker/Supabase remains unavailable for local-only linting.

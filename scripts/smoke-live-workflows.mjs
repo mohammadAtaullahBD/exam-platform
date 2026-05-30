@@ -146,6 +146,23 @@ async function deleteByUserId(table, column, ids) {
   }
 }
 
+async function countByUserId(table, column, ids, selectColumn) {
+  if (!ids.length) {
+    return 0;
+  }
+
+  const { count, error } = await service
+    .from(table)
+    .select(selectColumn, { count: "exact", head: true })
+    .in(column, ids);
+
+  if (error) {
+    throw new Error(`Cleanup verification ${table} failed: ${error.message}`);
+  }
+
+  return count ?? 0;
+}
+
 async function cleanup() {
   const ids = createdUsers.map((user) => user.id);
   const errors = [];
@@ -183,7 +200,9 @@ async function cleanup() {
   await attempt("delete group memberships", () =>
     deleteByUserId("group_members", "student_id", ids),
   );
-  await attempt("delete profiles", () => deleteByUserId("users", "id", ids));
+  await attempt("delete profiles before auth users", () =>
+    deleteByUserId("users", "id", ids),
+  );
 
   for (const user of createdUsers) {
     await attempt("delete auth user", async () => {
@@ -194,6 +213,17 @@ async function cleanup() {
       }
     });
   }
+
+  await attempt("delete profiles after auth users", () =>
+    deleteByUserId("users", "id", ids),
+  );
+  await attempt("verify profile cleanup", async () => {
+    const profileCount = await countByUserId("users", "id", ids, "id");
+
+    if (profileCount > 0) {
+      throw new Error(`${profileCount} temporary profile rows remain`);
+    }
+  });
 
   if (errors.length) {
     throw new Error(`Cleanup failed: ${errors.join("; ")}`);

@@ -52,6 +52,7 @@ Teacher-created exams live in `public.exams`, with ordered question rows in `pub
 - Exam state is derived from `starts_at` and `ends_at` using database time; teachers can mutate only scheduled exams.
 - `exam_questions` snapshots selected question content, options, and correct answer so later question-bank edits do not rewrite an already assembled exam.
 - A `closed_at` timestamp and `private.close_due_exams()` exist for future merit-list processing, while visible state remains derived from the schedule.
+- Server-rendered exam, merit, progress, and practice surfaces use authenticated `public.database_now()` to avoid Node.js clock drift when deciding whether an exam is scheduled, active, or closed.
 
 ## Submission Scoring
 

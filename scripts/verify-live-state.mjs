@@ -47,7 +47,7 @@ async function listProfiles(supabase) {
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
       .from("users")
-      .select("id,role")
+      .select("id,email,role")
       .range(from, from + 999);
 
     if (error) {
@@ -104,6 +104,9 @@ const authIds = new Set(authUsers.map((user) => user.id));
 const profileIds = new Set(profiles.map((profile) => profile.id));
 const orphanProfiles = profiles.filter((profile) => !authIds.has(profile.id));
 const orphanProfileIds = orphanProfiles.map((profile) => profile.id);
+const smokeOrphanProfileCount = orphanProfiles.filter((profile) =>
+  profile.email?.startsWith("codex-smoke-"),
+).length;
 const orphanDependencyCounts = {
   comments: await countRowsByUserIds(
     supabase,
@@ -191,6 +194,7 @@ console.log(
       adminAuthCount,
       orphanProfileCount: orphanProfiles.length,
       orphanProfileRoles,
+      smokeOrphanProfileCount,
       orphanDependencyCounts,
       orphanProfilesHaveDependencies: Object.values(orphanDependencyCounts).some(
         (count) => count > 0,

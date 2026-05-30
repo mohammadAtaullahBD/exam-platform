@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 
 import { toUserRole } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getDatabaseNowMs } from "@/lib/supabase/database-time";
 import { createClient } from "@/lib/supabase/server";
 import { examSchema } from "@/lib/validations/exam";
 import { submitExamSchema } from "@/lib/validations/student-exam";
@@ -83,10 +84,11 @@ function optionsFromJson(options: Json): string[] {
   return options.filter((option): option is string => typeof option === "string");
 }
 
-function isActiveExam(startsAt: string, endsAt: string) {
-  const now = Date.now();
-
-  return now >= new Date(startsAt).getTime() && now < new Date(endsAt).getTime();
+function isActiveExam(startsAt: string, endsAt: string, databaseNowMs: number) {
+  return (
+    databaseNowMs >= new Date(startsAt).getTime() &&
+    databaseNowMs < new Date(endsAt).getTime()
+  );
 }
 
 function getSubmittedAnswers(formData: FormData) {
@@ -322,7 +324,9 @@ export async function submitExamAnswers(
     };
   }
 
-  if (!isActiveExam(exam.starts_at, exam.ends_at)) {
+  const databaseNowMs = await getDatabaseNowMs(supabase);
+
+  if (!isActiveExam(exam.starts_at, exam.ends_at, databaseNowMs)) {
     return {
       status: "error",
       message: "This exam is no longer accepting submissions.",

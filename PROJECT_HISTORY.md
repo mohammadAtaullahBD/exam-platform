@@ -2,6 +2,38 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-30: Database-Time Hardening and Smoke Cleanup Verification (Codex)
+
+### [+] Tooling & Schema
+- Added migration `20260530083805_database_time_and_post_length_hardening.sql`.
+- Added `public.database_now()` so server-side exam/progress/practice visibility can use database time instead of the Node.js process clock.
+- Added a `posts_content_length` database check to match the existing 2000-character post validation.
+- Expanded `scripts/smoke-routes.mjs` to cover `/profile/edit`, `/student/profile`, `/student/profile/edit`, and `/teacher/[id]`.
+- Hardened `scripts/smoke-live-workflows.mjs` so temporary profile cleanup is re-run after Auth-user deletion and verified before reporting success.
+- Extended `scripts/verify-live-state.mjs` with an aggregate `smokeOrphanProfileCount` without printing profile emails or names.
+- Corrected the architecture memory tree to reflect current `lib/roles.ts` and `lib/supabase/database-time.ts` helpers.
+
+### [x] Successes
+- Ran parallel subagent audits for Phase 3 student core, Phase 4 social, Phase 5 public exams/admin, and Track E test/schema hardening.
+- Applied `20260530083805_database_time_and_post_length_hardening.sql` to the linked Supabase project.
+- Marked `20260530083805` applied in linked migration history and verified `npx.cmd supabase migration list --linked` shows local/remote alignment.
+- Regenerated `types/database.ts`; it now includes `Functions.database_now`.
+- Re-ran `npm run check`; lint, typecheck, and production build passed.
+- Re-ran `npm run smoke:static`; static security/admin-hidden checks passed.
+- Re-ran `npm run smoke:live-workflows`; all 45 live workflow checks passed and cleanup completed.
+- Re-ran `npm run verify:live-state` sequentially after live smoke; it returned to the 4-orphan baseline with `smokeOrphanProfileCount: 0`.
+- Re-ran `npx.cmd supabase db lint --linked --schema public --level warning --fail-on none --output-format json`; no schema errors were found.
+- Re-ran `npm run smoke:routes` against a local production server; 22 protected routes redirected as expected.
+- `git diff --check` passed with only line-ending warnings.
+
+### [!] Failures/Blockers
+- The latest post-migration `npx.cmd supabase db advisors --linked --level warn --fail-on none --output-format json` hit Supabase pooler auth failures and then `ECIRCUITBREAKER`; retry loops were stopped per project rule. The prior same-day advisors run before this hardening migration reported only `auth_leaked_password_protection`.
+- Live orphan cleanup and `users_id_auth_fkey` validation still require explicit project-owner approval.
+
+### [>] Next Steps
+- Re-run Supabase advisors after the pooler block clears.
+- After explicit approval, use the fail-closed orphan cleanup template to archive/delete the 4 isolated legacy profiles and validate `users_id_auth_fkey`.
+
 ## 2026-05-30: Orphan Profile Cleanup Playbook (Codex)
 
 ### [+] Tooling & Operations

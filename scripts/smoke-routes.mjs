@@ -3,11 +3,14 @@ const baseUrl = process.env.SMOKE_BASE_URL ?? "http://localhost:3000";
 const protectedRoutes = [
   "/dashboard",
   "/profile",
+  "/profile/edit",
   "/groups",
   "/questions",
   "/exams",
   "/posts",
   "/student/groups",
+  "/student/profile",
+  "/student/profile/edit",
   "/student/exams",
   "/student/exams/00000000-0000-4000-8000-000000000001",
   "/student/exams/00000000-0000-4000-8000-000000000001/merit",
@@ -17,6 +20,7 @@ const protectedRoutes = [
   "/student/public-exams",
   "/exams/00000000-0000-4000-8000-000000000001/merit",
   "/join/0123456789abcdef0123456789abcdef",
+  "/teacher/00000000-0000-4000-8000-000000000001",
   "/public-sets",
   "/admin/users",
 ];

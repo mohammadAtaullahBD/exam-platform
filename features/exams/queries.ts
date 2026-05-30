@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { toUserRole } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getDatabaseNowMs } from "@/lib/supabase/database-time";
 import { createClient } from "@/lib/supabase/server";
 import { examIdSchema } from "@/lib/validations/student-exam";
 import type { Database, Json } from "@/types/database";
@@ -90,23 +91,26 @@ function optionsFromJson(options: Json): string[] {
   return options.filter((option): option is string => typeof option === "string");
 }
 
-function getExamState(startsAt: string, endsAt: string): ExamState {
-  const now = Date.now();
+function getExamState(
+  startsAt: string,
+  endsAt: string,
+  databaseNowMs: number,
+): ExamState {
   const startTime = new Date(startsAt).getTime();
   const endTime = new Date(endsAt).getTime();
 
-  if (now < startTime) {
+  if (databaseNowMs < startTime) {
     return "scheduled";
   }
 
-  if (now < endTime) {
+  if (databaseNowMs < endTime) {
     return "active";
   }
 
   return "closed";
 }
 
-function examFromRow(row: ExamWithRelationsRow): Exam {
+function examFromRow(row: ExamWithRelationsRow, databaseNowMs: number): Exam {
   return {
     id: row.id,
     groupId: row.group_id,
@@ -117,7 +121,7 @@ function examFromRow(row: ExamWithRelationsRow): Exam {
     closedAt: row.closed_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    state: getExamState(row.starts_at, row.ends_at),
+    state: getExamState(row.starts_at, row.ends_at, databaseNowMs),
     questionCount: row.exam_questions?.length ?? 0,
   };
 }
@@ -188,17 +192,20 @@ function questionFromRow(
 
 export async function getTeacherExams(callbackUrl = "/exams") {
   const { supabase } = await requireTeacher(callbackUrl);
-  const { data, error } = await supabase
-    .from("exams")
-    .select("*, groups!exams_group_id_fkey(id,name), exam_questions(id)")
-    .order("starts_at", { ascending: false })
-    .returns<ExamWithRelationsRow[]>();
+  const [{ data, error }, databaseNowMs] = await Promise.all([
+    supabase
+      .from("exams")
+      .select("*, groups!exams_group_id_fkey(id,name), exam_questions(id)")
+      .order("starts_at", { ascending: false })
+      .returns<ExamWithRelationsRow[]>(),
+    getDatabaseNowMs(supabase),
+  ]);
 
   if (error || !data) {
     return [];
   }
 
-  return data.map(examFromRow);
+  return data.map((exam) => examFromRow(exam, databaseNowMs));
 }
 
 export async function getExamBuilderData(callbackUrl = "/exams") {
@@ -242,20 +249,24 @@ export async function getExamBuilderData(callbackUrl = "/exams") {
 
 export async function getStudentExams(callbackUrl = "/student/exams") {
   const { supabase, user } = await requireStudent(callbackUrl);
-  const { data, error } = await supabase
-    .from("exams")
-    .select(
-      "id,title,group_id,starts_at,ends_at,groups!exams_group_id_fkey(id,name,users!groups_teacher_id_fkey(name,email)),exam_questions(id)",
-    )
-    .order("starts_at", { ascending: true })
-    .returns<StudentExamRow[]>();
+  const [{ data, error }, databaseNowMs] = await Promise.all([
+    supabase
+      .from("exams")
+      .select(
+        "id,title,group_id,starts_at,ends_at,groups!exams_group_id_fkey(id,name,users!groups_teacher_id_fkey(name,email)),exam_questions(id)",
+      )
+      .order("starts_at", { ascending: true })
+      .returns<StudentExamRow[]>(),
+    getDatabaseNowMs(supabase),
+  ]);
 
   if (error || !data) {
     return [];
   }
 
   const visibleExams = data.filter(
-    (exam) => getExamState(exam.starts_at, exam.ends_at) !== "closed",
+    (exam) =>
+      getExamState(exam.starts_at, exam.ends_at, databaseNowMs) !== "closed",
   );
   const examIds = visibleExams.map((exam) => exam.id);
   const submittedAtByExamId = new Map<string, string>();
@@ -274,7 +285,7 @@ export async function getStudentExams(callbackUrl = "/student/exams") {
   }
 
   return visibleExams.map<StudentExamSummary>((exam) => {
-    const state = getExamState(exam.starts_at, exam.ends_at);
+    const state = getExamState(exam.starts_at, exam.ends_at, databaseNowMs);
 
     return {
       id: exam.id,
@@ -323,7 +334,8 @@ export async function getStudentExamDetail(examId: string) {
     .eq("student_id", user.id)
     .maybeSingle<StudentSubmissionRow>();
 
-  const state = getExamState(data.starts_at, data.ends_at);
+  const databaseNowMs = await getDatabaseNowMs(supabase);
+  const state = getExamState(data.starts_at, data.ends_at, databaseNowMs);
   const sortedQuestions = [...(data.exam_questions ?? [])].sort(
     (a, b) => a.sort_order - b.sort_order,
   );
@@ -382,7 +394,11 @@ async function getMeritEntries(exam: MeritExamRow, state: ExamState) {
   }));
 }
 
-function meritListFromExam(exam: MeritExamRow, entries: MeritEntry[]): MeritList {
+function meritListFromExam(
+  exam: MeritExamRow,
+  entries: MeritEntry[],
+  state: ExamState,
+): MeritList {
   return {
     exam: {
       id: exam.id,
@@ -390,7 +406,7 @@ function meritListFromExam(exam: MeritExamRow, entries: MeritEntry[]): MeritList
       groupName: exam.groups?.name ?? "Group",
       startsAt: exam.starts_at,
       endsAt: exam.ends_at,
-      state: getExamState(exam.starts_at, exam.ends_at),
+      state,
     },
     entries,
   };
@@ -422,10 +438,11 @@ export async function getStudentExamMeritList(examId: string) {
     notFound();
   }
 
-  const state = getExamState(data.starts_at, data.ends_at);
+  const databaseNowMs = await getDatabaseNowMs(supabase);
+  const state = getExamState(data.starts_at, data.ends_at, databaseNowMs);
   const entries = await getMeritEntries(data, state);
 
-  return meritListFromExam(data, entries);
+  return meritListFromExam(data, entries, state);
 }
 
 export async function getTeacherExamMeritList(examId: string) {
@@ -441,8 +458,9 @@ export async function getTeacherExamMeritList(examId: string) {
     notFound();
   }
 
-  const state = getExamState(data.starts_at, data.ends_at);
+  const databaseNowMs = await getDatabaseNowMs(supabase);
+  const state = getExamState(data.starts_at, data.ends_at, databaseNowMs);
   const entries = await getMeritEntries(data, state);
 
-  return meritListFromExam(data, entries);
+  return meritListFromExam(data, entries, state);
 }

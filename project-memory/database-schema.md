@@ -109,6 +109,12 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Leaves the FK `NOT VALID` so the 4 known legacy orphan profile rows do not block the migration.
 - Enforces the FK for new/updated profile rows; validate it only after orphan profiles are archived or deleted.
 
+`supabase/migrations/20260530083805_database_time_and_post_length_hardening.sql` hardens state and social constraints:
+
+- Adds authenticated `public.database_now()` so server-side app code can calculate exam state from database time instead of the Node.js process clock.
+- Adds `public.posts.posts_content_length` to enforce the app's 2000-character post limit for direct Data API writes too.
+- Leaves existing over-limit post data untouched if any exists; the constraint still protects new and updated rows.
+
 ## RLS Requirements
 
 - Enable RLS on all public tables.
@@ -118,5 +124,6 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Group invite token lookup and membership insertion happen in server actions; client components never call Supabase directly.
 - Question mutations happen through server actions; client components do not call Supabase directly.
 - Exam mutations happen through server actions; client components do not call Supabase directly.
+- Exam state checks in server code should use authenticated `public.database_now()` or database-side helpers, not the local process clock.
 - Submission and public-attempt scoring happen in server actions after authenticated role checks.
 - Direct authenticated clients receive read access only for scored submission/attempt records; service-role writes are guarded by server-side membership/role checks and database triggers.
