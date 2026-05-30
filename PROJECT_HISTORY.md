@@ -2,6 +2,29 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-30: Completion Audit Refresh (Codex)
+
+### [x] Successes
+- Re-read `AGENTS.md`, `AGENT_RULES.md`, all files in `project-memory/`, `PROJECT_HISTORY.md`, and the local Supabase skill before continuing the active completion goal.
+- Spawned read-only subagent audits for Track A cleanup, Tracks B-D implementation, and Track E verification/hardening.
+- Track A audit confirmed immediate setup, auth/profile migration history, hosted redirect evidence, first-admin verification, Phase 1 profile completion, Supabase advisors, Exams RLS, and `close-due-exams` cron evidence remain satisfied.
+- Tracks B-D audit found no blocking implementation gaps in student exam-taking/merit/progress/practice, social posts/reactions/comments, or public exam set/student/teacher customization workflows.
+- Re-ran `npm run smoke:static`; static signup/admin-hidden/client-secret/trusted-role checks passed.
+- Re-ran `npm run check`; lint, typecheck, and production build passed.
+- Re-ran `npm run smoke:routes` against a local production server; 22 protected routes redirected as expected.
+- Re-ran `npm run verify:live-state`; the live project still has 4 dependency-free orphan profile rows, `smokeOrphanProfileCount: 0`, no Auth users missing profiles, and at least one trusted Auth admin.
+- Re-ran `npx.cmd supabase migration list --linked`; local and remote migration history are aligned through `20260530083805`.
+- Re-ran linked Supabase DB lint; no public-schema errors were found.
+- Re-ran linked Supabase advisors; the only warning remains project-level `auth_leaked_password_protection`.
+
+### [!] Failures/Blockers
+- Live orphan cleanup and `users_id_auth_fkey` validation still require explicit project-owner approval because they mutate live profile data.
+- `ADMIN_SETUP_TOKEN` is still configured locally and should be removed or rotated after confirming no future bootstrap is needed.
+
+### [>] Next Steps
+- After explicit approval, archive then delete the 4 isolated legacy profile rows using the fail-closed cleanup template and validate `users_id_auth_fkey`.
+- Re-run `npm run verify:live-state`, linked DB lint, linked advisors, and direct FK validation after cleanup.
+
 ## 2026-05-30: Database-Time Hardening and Smoke Cleanup Verification (Codex)
 
 ### [+] Tooling & Schema
