@@ -106,8 +106,8 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 `supabase/migrations/20260530032151_add_users_auth_fk_not_valid.sql` follows up the auth/profile schema:
 
 - Adds the intended `users_id_auth_fkey` from `public.users(id)` to `auth.users(id)` with `on delete cascade`.
-- Leaves the FK `NOT VALID` so the 4 known legacy orphan profile rows do not block the migration.
-- Enforces the FK for new/updated profile rows; validate it only after orphan profiles are archived or deleted.
+- Originally left the FK `NOT VALID` so the 4 known legacy orphan profile rows did not block the migration.
+- After explicit project-owner approval, the 4 isolated orphan profiles were archived into `private.archived_user_profiles`, deleted from `public.users`, and `users_id_auth_fkey` was validated in the linked database.
 
 `supabase/migrations/20260530083805_database_time_and_post_length_hardening.sql` hardens state and social constraints:
 

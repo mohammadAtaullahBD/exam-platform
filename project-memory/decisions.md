@@ -18,6 +18,7 @@ Use `public.users` as the application profile table linked by `id = auth.users.i
 - New signup users must exist in both `auth.users` and `public.users`.
 - `password_hash` is legacy/deprecated and must not contain real passwords.
 - Legacy profile-only users are live data and must not be deleted by automation without explicit project-owner approval. The approved cleanup path should archive isolated orphan profile rows into the private schema before deleting them and validating `users_id_auth_fkey`.
+- On 2026-05-30, the project owner approved that cleanup path; the 4 isolated orphan profiles were archived into `private.archived_user_profiles`, deleted from `public.users`, and `users_id_auth_fkey` was validated.
 
 ## Roles
 

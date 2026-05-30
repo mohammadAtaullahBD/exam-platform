@@ -5,7 +5,7 @@
 - [x] Profile schema and posts alignment are functionally applied in the linked Supabase project per prior verification.
 - [x] Production `/auth/callback` redirect was restored in hosted Supabase Auth config per prior verification.
 - [x] The 2026-05-29 migrations were applied and later confirmed aligned in linked migration history.
-- [x] The intended `public.users(id) -> auth.users(id)` FK now exists live as `NOT VALID`, so new profile rows are enforced while legacy orphans remain.
+- [x] The intended `public.users(id) -> auth.users(id)` FK exists live and is now validated after approved orphan cleanup.
 - [x] Older migration history is now aligned: remote `20260522180510_fix_auth_profile_sync.sql` is present locally and `20260512180000` is marked applied after live schema verification.
 - [x] Hosted Supabase Auth accepts both production and local callback URLs; `npm run verify:auth-redirects` tested temporary signups for `https://exam.ataullah.dev/auth/callback` and `http://localhost:3000/auth/callback`, then deleted the temporary Auth users.
 - [x] First real admin/bootstrap state was verified through the Auth Admin API without exposing secrets; at least one Auth user has trusted `app_metadata.role = admin`.
@@ -15,8 +15,9 @@
 - [x] Server-side exam/progress/practice state checks now use linked Supabase database time via `public.database_now()`.
 - [x] Live workflow smoke cleanup now verifies temporary profile rows are gone; the latest sequential `npm run verify:live-state` reports `smokeOrphanProfileCount: 0`.
 - [x] Protected-route smoke now covers 22 routes, including profile edit/student profile/teacher profile routes.
+- [x] The 4 isolated legacy orphan profiles were archived into `private.archived_user_profiles`, deleted from `public.users`, and `users_id_auth_fkey` was validated after explicit approval.
 - [!] `ADMIN_SETUP_TOKEN` is still configured locally. Remove or rotate it in local/deployment environments after confirming no further bootstrap is needed.
-- [!] Live orphan check found 4 `public.users` rows without matching Auth users. Current aggregate dependency checks show zero direct dependent rows; archive or delete those legacy/seed rows after explicit approval.
+- [!] A post-cleanup linked migration-list/lint rerun hit Supabase pooler `ECIRCUITBREAKER`; retry those remote checks after the circuit breaker clears.
 - [!] Optional security upgrade: move the Supabase organization to Pro or higher to enable leaked-password protection.
 
 ---
@@ -122,5 +123,5 @@
 ## Ongoing
 
 - Build richer audit/change history for role-management actions if needed.
-- Validate `users_id_auth_fkey` after the 4 orphan profile rows are archived or deleted.
-- Clean up or archive the 4 isolated orphan profile rows after explicit approval using the fail-closed SQL template and postflight verification.
+- Re-run linked migration list and linked DB lint after the Supabase pooler circuit breaker clears.
+- Remove or rotate `ADMIN_SETUP_TOKEN` after confirming no further bootstrap operations are needed.

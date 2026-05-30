@@ -2,6 +2,29 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-30: Approved Orphan Profile Cleanup (Codex)
+
+### [x] Successes
+- Re-read the mandatory agent context, project memory, and Supabase skill before touching live data.
+- Confirmed the project owner approved the recommended archive-then-delete cleanup path.
+- Generated a one-use approved SQL file from `scripts/archive-orphan-profiles-and-validate-fk.sql.template` outside the repo and deleted it after execution.
+- Archived the 4 isolated legacy `public.users` rows into `private.archived_user_profiles`.
+- Deleted only `public.users` rows without a matching `auth.users` row.
+- Validated `public.users.users_id_auth_fkey`.
+- Postflight `npm run verify:live-state` now reports 4 Auth users, 4 profile rows, `orphanProfileCount: 0`, `authUsersMissingProfileCount: 0`, and `firstAdminExists: true`.
+- Direct linked SQL confirmed `users_id_auth_fkey` is validated, 4 archived profile rows exist, and 0 orphan profiles remain.
+- Re-ran Supabase advisors successfully; the only warning remains project-level `auth_leaked_password_protection`.
+- Re-ran `npm run smoke:static`, `npm run check`, and `npm run smoke:routes`; all passed.
+
+### [!] Failures/Blockers
+- A post-cleanup `npx.cmd supabase migration list --linked` rerun hit the Supabase pooler `ECIRCUITBREAKER`; retry loops were stopped per project rule.
+- Linked DB lint could not be rerun after cleanup because the pooler circuit breaker was active. The most recent pre-cleanup linked DB lint was clean, and the cleanup did not add public schema objects.
+- `ADMIN_SETUP_TOKEN` is still configured locally and should be removed or rotated in local/deployment environments after confirming no more bootstrap operations are needed.
+
+### [>] Next Steps
+- Re-run linked migration list and linked DB lint after the Supabase pooler circuit breaker clears.
+- Remove or rotate `ADMIN_SETUP_TOKEN` outside committed source control.
+
 ## 2026-05-30: Completion Audit Refresh (Codex)
 
 ### [x] Successes
