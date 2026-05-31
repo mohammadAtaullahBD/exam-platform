@@ -2,6 +2,17 @@
 
 ## Vercel Deployment Steps
 
+Current project:
+
+- Vercel project: `exam-platform`
+- Production URL: `https://exam.ataullah.dev`
+- Framework preset: Next.js
+- Install command: `npm install`
+- Build command: `npm run vercel-build`
+- Output directory: Next.js default
+
+### First-time setup
+
 1. Push the repository to GitHub, GitLab, or Bitbucket.
 2. In Vercel, click **Add New...** then **Project**.
 3. Import the repository.
@@ -16,13 +27,28 @@
 10. Apply all migrations in `supabase/migrations/` through the Supabase CLI or SQL Editor.
 11. Deploy.
 
+### Release flow
+
+1. Confirm local verification passes:
+   - `npm run check`
+   - `npm run smoke:static`
+   - `npm run verify:live-state`
+2. Push the release branch to GitHub.
+3. Wait for Vercel to create a Preview deployment.
+4. If the Preview deployment is protected, test the public production domain after promotion instead of the protected Preview URL.
+5. Merge to the production branch or promote the ready Preview deployment in Vercel.
+6. Smoke-test production:
+   - PowerShell: `$env:SMOKE_BASE_URL = 'https://exam.ataullah.dev'; npm.cmd run smoke:routes`
+   - Bash: `SMOKE_BASE_URL=https://exam.ataullah.dev npm run smoke:routes`
+
 ## Production Environment Variables
 
 - `NEXT_PUBLIC_SITE_URL=https://your-project.vercel.app`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SERVICE_KEY`
-- `ADMIN_SETUP_TOKEN` until first admin setup is complete
+
+Do not set `ADMIN_SETUP_TOKEN` after first admin setup is complete.
 
 ## Common Issues
 

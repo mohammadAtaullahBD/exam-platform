@@ -2,6 +2,22 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-31: Production Deployment Verification (Codex)
+
+### [x] Successes
+- Verified Vercel CLI access as the project owner account and linked the local workspace to the existing `exam-platform` Vercel project.
+- Confirmed Vercel project settings use the Next.js framework preset, `npm install`, and `npm run vercel-build`.
+- Cleaned Vercel project environment variables so only `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SERVICE_KEY` remain for Production/Preview.
+- Pushed `codex/complete-remaining-platform` to GitHub, triggering an automatic Vercel Preview deployment.
+- Promoted the ready Preview deployment to Production.
+- Verified the production domain `https://exam.ataullah.dev` responds and re-ran `npm run smoke:routes` against it; all 22 protected-route checks passed.
+
+### [!] Failures/Blockers
+- The branch Preview deployment is protected by Vercel Preview Deployment Protection and returns `401` to unauthenticated smoke tests; production smoke testing succeeded on the public custom domain.
+
+### [>] Next Steps
+- For future releases, push a branch to GitHub, wait for the Vercel Preview deployment, then merge/promote to Production and run `SMOKE_BASE_URL=https://exam.ataullah.dev npm run smoke:routes`.
+
 ## 2026-05-30: Final Blocker Clearance (Codex)
 
 ### [x] Successes
