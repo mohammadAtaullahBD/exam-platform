@@ -2,6 +2,20 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-05-31: Vercel Speed Insights (Codex)
+
+### [+] Features
+- Installed `@vercel/speed-insights`.
+- Added the Next.js `<SpeedInsights />` component to the root app layout so production deployments can collect Speed Insights metrics.
+
+### [x] Successes
+- Verified against Vercel's current Speed Insights package guidance for Next.js.
+- Re-ran `npm run check`; lint, typecheck, and production build passed.
+- Re-ran `npm run smoke:static`; static role/security/admin-hidden checks passed.
+
+### [>] Next Steps
+- Push to GitHub, wait for Vercel Preview, promote to Production, then visit the production site to start collecting data.
+
 ## 2026-05-31: Production Deployment Verification (Codex)
 
 ### [x] Successes

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-31
+
+- Added Vercel Speed Insights with `@vercel/speed-insights` and the root Next.js `<SpeedInsights />` component.
+
 ## 2026-05-30
 
 - Cleared the remaining cleanup blockers: linked migration list and linked DB lint now pass after pooler recovery, and local `.env.local` no longer contains `ADMIN_SETUP_TOKEN` or legacy duplicate env names.

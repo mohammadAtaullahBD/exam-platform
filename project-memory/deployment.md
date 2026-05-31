@@ -40,6 +40,7 @@ Current project:
 6. Smoke-test production:
    - PowerShell: `$env:SMOKE_BASE_URL = 'https://exam.ataullah.dev'; npm.cmd run smoke:routes`
    - Bash: `SMOKE_BASE_URL=https://exam.ataullah.dev npm run smoke:routes`
+7. For Speed Insights, visit the production site after deployment so Vercel can begin collecting real visitor metrics.
 
 ## Production Environment Variables
 
