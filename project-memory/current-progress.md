@@ -119,6 +119,7 @@
 - `types/database.ts` was regenerated from the linked schema after the question-set migration.
 - After the question-set migration, linked migration list and linked DB lint passed, and `npm run smoke:live-workflows` passed with 47 checks.
 - A later linked Supabase advisor run completed with only the known `auth_leaked_password_protection` warning.
+- Vercel successfully built commit `8024da2` as a Preview deployment, that deployment was promoted to Production, and `npm run smoke:routes` passed against `https://exam.ataullah.dev`.
 - Hosted Auth accepted both `https://exam.ataullah.dev/auth/callback` and `http://localhost:3000/auth/callback` in temporary signups; the temporary Auth users were deleted.
 - Direct linked SQL previously verified `users_id_auth_fkey` existed on `public.users` as intentionally unvalidated before orphan cleanup.
 - Direct linked SQL verified `users_id_auth_fkey` is now validated after approved orphan cleanup.

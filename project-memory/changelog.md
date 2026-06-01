@@ -8,6 +8,7 @@
 - Updated group exams, public exams, progress/practice, and smoke checks for typed question snapshots and responses.
 - Adapted teacher public-set import to create an editable teacher-owned question set.
 - Confirmed Vercel Speed Insights remains installed and mounted for the next redeployment.
+- Promoted the completed Vercel Preview deployment for the question-set commit to Production and re-ran production route smoke on `https://exam.ataullah.dev`.
 
 ## 2026-05-31
 

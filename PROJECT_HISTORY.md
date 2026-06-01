@@ -27,6 +27,9 @@ This file tracks the evolution of the Exam Platform, serving as a shared memory 
 - Re-ran linked Supabase DB lint; no public-schema errors were found.
 - Re-ran linked Supabase advisors during the release pass; the only warning remains project-level `auth_leaked_password_protection`.
 - Verified local/remote migration history is aligned through `20260531141254`.
+- Pushed commit `8024da2` to GitHub; Vercel reported the deployment successful for Preview.
+- Promoted the successful Preview deployment to Production, creating ready production deployment `exam-platform-hp9og6n6r-mohammadataullahbds-projects.vercel.app`.
+- Re-ran production smoke against `https://exam.ataullah.dev`; all 22 protected-route checks passed.
 
 ### [!] Failures/Blockers
 - A final post-verification `supabase migration list --linked` rerun hit Supabase pooler `ECIRCUITBREAKER`. Per project rule, retries were stopped. The most recent linked migration-list and DB-lint checks before the release pass were clean and aligned through `20260531141254`.
