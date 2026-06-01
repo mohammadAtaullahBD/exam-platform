@@ -14,6 +14,7 @@
 - Protected starter dashboard added at `/dashboard`.
 - Logout button clears Supabase session and returns to `/`.
 - Proxy redirects unauthenticated dashboard access to `/signin`.
+- Vercel Speed Insights is installed and mounted in the root app layout.
 - First-admin bootstrap and admin role-promotion APIs added.
 - Current real Supabase Auth user was backfilled into `public.users`.
 - Auth/profile migration SQL added under `supabase/migrations/`.
@@ -42,13 +43,19 @@
   - `types/database.ts` was regenerated and includes `groups` and `group_members`.
 - Phase 2 questions implemented:
   - `public.questions` exists with teacher/admin source tracking, JSONB answer options, answer validation, timestamps, FK indexes, and RLS.
-  - `/questions` lets teachers create, edit, delete, search, and filter their question bank.
+  - `public.question_sets` and `public.question_set_questions` exist with teacher-owned set titles/descriptions, ordered question items, typed metadata, FK indexes, and RLS.
+  - `/questions` lets teachers create, edit, delete, search, and import Google-Forms-like question sets instead of standalone single questions.
   - `features/questions/` contains the question actions, queries, types, and components.
-  - `types/database.ts` was regenerated and includes `questions`.
+  - `types/database.ts` was regenerated and includes `questions`, `question_sets`, and `question_set_questions`.
   - Follow-up migration `20260524171724_grant_question_validation_helpers.sql` grants authenticated users the private validation helper access needed for question inserts.
+- Active question-set UI slice implemented:
+  - `/questions` now renders a Google-Forms-like question-set builder/list instead of the older single-question bank.
+  - The builder supports set title/description, question add/remove/duplicate/move, short answer, paragraph, multiple choice, checkboxes, dropdown, linear scale, rating, options, answer keys, required toggles, points, and scale/rating settings.
+  - Public-set import is adapted to copy a published public set into a teacher-owned question set.
+  - Paragraph questions are stored as responses but remain unscored until a manual grading workflow is added.
 - Phase 2 exams implemented:
   - `public.exams` and `public.exam_questions` exist with FK indexes, timestamps, RLS, and database-derived scheduled/active/closed state.
-  - Exam questions store snapshots of selected question content, options, and correct answer.
+  - Exam questions store snapshots of selected question content, type, description, options, settings, answer key, required flag, and points.
   - A `pg_cron` job named `close-due-exams` calls `private.close_due_exams()` every minute to stamp ended exams with `closed_at`.
   - `/exams` lets teachers create group exams from their question bank and list scheduled, active, and closed exams.
   - `features/exams/` contains exam actions, queries, types, and components.
@@ -108,6 +115,10 @@
 - `npx.cmd supabase migration list --linked`
 - `npx.cmd supabase db advisors --linked --level warn --fail-on none --output-format json`
 - `npx.cmd supabase gen types typescript --linked --schema public` regenerated types through a temp file; no `types/database.ts` content diff was produced.
+- `20260531141254_google_form_question_sets.sql` was applied to the linked Supabase project and marked applied in migration history.
+- `types/database.ts` was regenerated from the linked schema after the question-set migration.
+- After the question-set migration, linked migration list and linked DB lint passed, and `npm run smoke:live-workflows` passed with 47 checks.
+- A later linked Supabase advisor run completed with only the known `auth_leaked_password_protection` warning.
 - Hosted Auth accepted both `https://exam.ataullah.dev/auth/callback` and `http://localhost:3000/auth/callback` in temporary signups; the temporary Auth users were deleted.
 - Direct linked SQL previously verified `users_id_auth_fkey` existed on `public.users` as intentionally unvalidated before orphan cleanup.
 - Direct linked SQL verified `users_id_auth_fkey` is now validated after approved orphan cleanup.
@@ -170,3 +181,5 @@ The 2026-05-29 migrations were applied to the linked Supabase project with `npx.
 Live Auth/profile verification with `npm run verify:live-state` now confirms 4 Auth users, 4 profile rows, at least one Auth admin, no Auth users missing profiles, 0 orphan `public.users` profiles, `adminSetupTokenConfigured: false`, and no legacy duplicate env names in `.env.local`.
 
 Supabase advisors run successfully with the installed CLI (`2.102.0`). The full linked advisor run after the database-time hardening migration reports only `auth_leaked_password_protection`; performance advisors previously reported no issues. After applying `20260530083805_database_time_and_post_length_hardening.sql`, migration list, linked DB lint, and linked advisors all succeeded. After applying `20260530032151_add_users_auth_fk_not_valid.sql`, direct SQL verified the FK exists, migration history was aligned, and linked types were regenerated with no content diff. Linked DB lint now works through the current CLI and reports no public-schema errors; local Docker/Supabase remains unavailable for local-only linting. After approved orphan cleanup, direct SQL verified the FK is validated and 0 orphan profiles remain. A later post-cleanup rerun confirmed linked migration list and linked DB lint are both successful again after the temporary pooler circuit breaker cleared.
+
+After applying `20260531141254_google_form_question_sets.sql`, linked migration list and linked DB lint succeeded. A later Supabase advisor run succeeded with only the known leaked-password-protection warning. A final post-verification `supabase migration list --linked` rerun hit pooler `ECIRCUITBREAKER`; retry loops were stopped per project rule, and linked migration list/DB lint should be rerun after the pooler clears.

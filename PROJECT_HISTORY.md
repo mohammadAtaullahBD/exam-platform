@@ -2,6 +2,40 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-06-01: Google-Forms-Style Question Sets and Speed Insights Redeploy (Codex)
+
+### [+] Features
+- Replaced the teacher `/questions` page with a Google-Forms-like question-set workspace.
+- Added question-set server actions, queries, validation, and client draft builder components under `features/questions/`.
+- Added create/edit/delete set flows, question add/remove/duplicate/move controls, type selector, option editor, answer key, required toggle, points, scale/rating settings, and save actions.
+- Added support for short answer, paragraph, multiple choice, checkboxes, dropdown, linear scale, and rating question items. File upload remains intentionally unsupported.
+- Adapted public-set import to create a teacher-owned question set from a published public set.
+- Added migration `20260531141254_google_form_question_sets.sql` with `public.question_sets`, `public.question_set_questions`, typed question metadata, typed exam/public-set snapshots, JSON answer payloads, and point fields.
+- Updated group exam and public exam rendering/scoring for the new question types. Paragraph questions are stored as responses but are unscored until a manual grading workflow exists.
+- Confirmed `@vercel/speed-insights` remains installed and `<SpeedInsights />` remains mounted in the root layout for the next Vercel deployment.
+
+### [x] Successes
+- Applied `20260531141254_google_form_question_sets.sql` to the linked Supabase project and marked it applied in migration history.
+- Regenerated `types/database.ts` from the linked schema with the new question-set and typed-answer fields.
+- Kept user mutations in server actions while client components only manage draft interactivity.
+- Preserved the restrained Tailwind visual language with full-width builder/list sections and white cards.
+- Re-ran `npm run check`; lint, typecheck, and production build passed.
+- Re-ran `npm run smoke:static`; static security/schema checks passed.
+- Re-ran `npm run smoke:live-workflows`; 47 live workflow checks passed and cleanup completed.
+- Re-ran `npm run verify:live-state`; Auth/profile state remains clean with 0 orphan profiles and `adminSetupTokenConfigured: false`.
+- Re-ran `npm run smoke:routes` against a local production server; 22 protected-route checks passed.
+- Re-ran linked Supabase DB lint; no public-schema errors were found.
+- Re-ran linked Supabase advisors during the release pass; the only warning remains project-level `auth_leaked_password_protection`.
+- Verified local/remote migration history is aligned through `20260531141254`.
+
+### [!] Failures/Blockers
+- A final post-verification `supabase migration list --linked` rerun hit Supabase pooler `ECIRCUITBREAKER`. Per project rule, retries were stopped. The most recent linked migration-list and DB-lint checks before the release pass were clean and aligned through `20260531141254`.
+- Browser screenshot automation was not available in this session, so visual verification was limited to build/render checks and route smoke.
+
+### [>] Next Steps
+- Re-run linked Supabase migration list and DB lint after the pooler circuit breaker clears.
+- Do an authenticated browser pass on `/questions` with a real teacher session after deployment.
+
 ## 2026-05-31: Vercel Speed Insights (Codex)
 
 ### [+] Features

@@ -113,20 +113,26 @@ src/
 **group_members** — students enrolled in a group
 - `group_id uuid FK → groups`, `student_id uuid FK → profiles`, `joined_at timestamptz`
 
-**questions** — authored by teachers or admin
-- `id uuid PK`, `author_id uuid FK → profiles`, `content text`, `options jsonb`, `correct_answer text`, `source text` (teacher | admin), `original_id uuid` (FK to admin original when copied), `created_at timestamptz`
+**question_sets** — Google-Forms-like teacher question sets
+- `id uuid PK`, `teacher_id uuid FK → profiles`, `title text`, `description text`, `source text`, `original_id uuid`, `created_at timestamptz`, `updated_at timestamptz`
+
+**question_set_questions** — ordered items inside a teacher question set
+- `id uuid PK`, `set_id uuid FK → question_sets`, `content text`, `description text`, `question_type text`, `options jsonb`, `settings jsonb`, `answer_key jsonb`, `is_required bool`, `points numeric`, `grading_mode text`, `sort_order int`
+
+**questions** — legacy/admin compatibility question rows
+- `id uuid PK`, `author_id uuid FK → profiles`, `question_set_id uuid FK → question_sets`, `content text`, `question_type text`, `options jsonb`, `settings jsonb`, `answer_key jsonb`, `correct_answer text`, `source text`, `original_id uuid`, `created_at timestamptz`
 
 **exams** — scheduled for a specific group
 - `id uuid PK`, `group_id uuid FK → groups`, `title text`, `starts_at timestamptz`, `ends_at timestamptz`
 
-**exam_questions** — join table; also used to attach public admin sets to an exam
-- `exam_id uuid FK → exams`, `question_id uuid FK → questions`, `sort_order int`
+**exam_questions** — ordered exam question snapshots
+- `exam_id uuid FK → exams`, `question_id uuid FK → questions`, `source_question_set_id uuid FK → question_sets`, `sort_order int`, snapshot content/type/options/settings/answer-key/points/required fields
 
 **submissions** — one per student per exam
-- `id uuid PK`, `exam_id uuid FK → exams`, `student_id uuid FK → profiles`, `score int`, `submitted_at timestamptz`
+- `id uuid PK`, `exam_id uuid FK → exams`, `student_id uuid FK → profiles`, `score int`, `total_questions int`, `score_points numeric`, `max_points numeric`, `submitted_at timestamptz`
 
 **submission_answers** — one row per question per submission
-- `id uuid PK`, `submission_id uuid FK → submissions`, `exam_question_id uuid FK → exam_questions`, `question_id uuid FK → questions`, `answer text`, `is_correct bool`
+- `id uuid PK`, `submission_id uuid FK → submissions`, `exam_question_id uuid FK → exam_questions`, `question_id uuid FK → questions`, `answer text`, `response jsonb`, `is_correct bool`, `score_points numeric`, `max_points numeric`, `is_gradable bool`, `grading_status text`
 
 **posts** — teacher's public text-only social posts
 - `id uuid PK`, `teacher_id uuid FK → profiles`, `content text`, `created_at timestamptz`
@@ -141,13 +147,13 @@ src/
 - `id uuid PK`, `admin_id uuid FK → profiles`, `title text`, `description text`, `is_published bool`
 
 **public_exam_set_questions** — ordered public set question snapshots
-- `id uuid PK`, `set_id uuid FK → public_exam_sets`, `question_id uuid FK → questions`, `sort_order int`, snapshot fields
+- `id uuid PK`, `set_id uuid FK → public_exam_sets`, `question_id uuid FK → questions`, `source_question_set_id uuid FK → question_sets`, `sort_order int`, snapshot content/type/options/settings/answer-key/points/required fields
 
 **public_exam_attempts** — personal student attempts for public sets
-- `id uuid PK`, `set_id uuid FK → public_exam_sets`, `student_id uuid FK → profiles`, `score int`, `total_questions int`, `submitted_at timestamptz`
+- `id uuid PK`, `set_id uuid FK → public_exam_sets`, `student_id uuid FK → profiles`, `score int`, `total_questions int`, `score_points numeric`, `max_points numeric`, `submitted_at timestamptz`
 
 **public_exam_attempt_answers** — answers for public set attempts
-- `id uuid PK`, `attempt_id uuid FK → public_exam_attempts`, `set_question_id uuid FK → public_exam_set_questions`, `question_id uuid FK → questions`, `answer text`, `is_correct bool`
+- `id uuid PK`, `attempt_id uuid FK → public_exam_attempts`, `set_question_id uuid FK → public_exam_set_questions`, `question_id uuid FK → questions`, `answer text`, `response jsonb`, `is_correct bool`, `score_points numeric`, `max_points numeric`, `is_gradable bool`, `grading_status text`
 
 ### Index Every Foreign Key
 
@@ -189,7 +195,7 @@ An exam has three states: `scheduled → active → closed`.
 
 ### Teacher
 - Creates private groups (e.g. "Class 9", "Tukhor").
-- Manages a personal question bank.
+- Manages personal question sets with typed questions, answer keys, and scoring metadata.
 - Builds exams from their own questions or customised admin public sets.
 - Publishes text-only public posts visible to followers; students can react and comment.
 

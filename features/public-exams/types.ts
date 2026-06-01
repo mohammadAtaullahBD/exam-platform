@@ -24,7 +24,11 @@ export type AdminPublicExamSet = {
 export type PublicExamQuestion = {
   id: string;
   content: string;
+  description: string | null;
   options: string[];
+  questionType: QuestionType;
+  settings: QuestionSettings;
+  isRequired: boolean;
 };
 
 export type PublicExamAttemptSummary = {
@@ -41,4 +45,20 @@ export type StudentPublicExamSet = {
   questionCount: number;
   questions: PublicExamQuestion[];
   attempts: PublicExamAttemptSummary[];
+};
+
+export type QuestionType =
+  | "short_answer"
+  | "paragraph"
+  | "multiple_choice"
+  | "checkboxes"
+  | "dropdown"
+  | "linear_scale"
+  | "rating";
+
+export type QuestionSettings = {
+  min?: number;
+  max?: number;
+  minLabel?: string;
+  maxLabel?: string;
 };

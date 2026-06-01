@@ -16,15 +16,38 @@ import type {
   ExamState,
   MeritEntry,
   MeritList,
+  QuestionSettings,
+  QuestionType,
   StudentExamDetail,
   StudentExamQuestion,
   StudentExamSummary,
 } from "./types";
 
 type ExamRow = Database["public"]["Tables"]["exams"]["Row"];
-type ExamQuestionRow = Database["public"]["Tables"]["exam_questions"]["Row"];
+type ExamQuestionRow = Database["public"]["Tables"]["exam_questions"]["Row"] & {
+  snapshot_question_type?: string | null;
+  snapshot_description?: string | null;
+  snapshot_settings?: Json | null;
+  snapshot_is_required?: boolean | null;
+};
 type GroupRow = Database["public"]["Tables"]["groups"]["Row"];
-type QuestionRow = Database["public"]["Tables"]["questions"]["Row"];
+type QuestionSetQuestionRow = {
+  id: string;
+  content: string;
+  description: string | null;
+  question_type: string;
+  options: Json;
+  answer_key: Json;
+  sort_order: number;
+  question_sets: { title: string; teacher_id: string } | null;
+};
+type PublicSetQuestionRow =
+  Database["public"]["Tables"]["public_exam_set_questions"]["Row"] & {
+    snapshot_question_type?: string | null;
+    snapshot_description?: string | null;
+    snapshot_settings?: Json | null;
+    public_exam_sets: { title: string; is_published: boolean } | null;
+  };
 type SubmissionRow = Database["public"]["Tables"]["submissions"]["Row"];
 
 type UserSummaryRow = {
@@ -60,6 +83,15 @@ type StudentExamDetailRow = Pick<
           ExamQuestionRow,
           "id" | "sort_order" | "snapshot_content" | "snapshot_options"
         >
+        & Partial<
+          Pick<
+            ExamQuestionRow,
+            | "snapshot_question_type"
+            | "snapshot_description"
+            | "snapshot_settings"
+            | "snapshot_is_required"
+          >
+        >
       >
     | null;
 };
@@ -89,6 +121,70 @@ function optionsFromJson(options: Json): string[] {
   }
 
   return options.filter((option): option is string => typeof option === "string");
+}
+
+const questionTypes = new Set<QuestionType>([
+  "short_answer",
+  "paragraph",
+  "multiple_choice",
+  "checkboxes",
+  "dropdown",
+  "linear_scale",
+  "rating",
+]);
+
+function objectFromJson(value: Json | null | undefined): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeQuestionType(value: unknown, options: string[]): QuestionType {
+  return typeof value === "string" && questionTypes.has(value as QuestionType)
+    ? (value as QuestionType)
+    : options.length
+      ? "multiple_choice"
+      : "short_answer";
+}
+
+function normalizeSettings(value: Json | null | undefined): QuestionSettings {
+  const settings = objectFromJson(value);
+  const min = Number(settings.min);
+  const max = Number(settings.max);
+
+  return {
+    min: Number.isFinite(min) ? min : undefined,
+    max: Number.isFinite(max) ? max : undefined,
+    minLabel:
+      typeof settings.minLabel === "string"
+        ? settings.minLabel
+        : typeof settings.lowLabel === "string"
+          ? settings.lowLabel
+          : undefined,
+    maxLabel:
+      typeof settings.maxLabel === "string"
+        ? settings.maxLabel
+        : typeof settings.highLabel === "string"
+          ? settings.highLabel
+          : undefined,
+  };
+}
+
+function displayAnswerFromKey(answerKey: Json | null | undefined, fallback = "") {
+  const key = objectFromJson(answerKey);
+  const values = key.values ?? key.answers;
+
+  if (Array.isArray(values)) {
+    return values.filter((value): value is string => typeof value === "string").join(", ");
+  }
+
+  for (const field of ["value", "answer", "correctAnswer"]) {
+    const value = key[field];
+
+    if (typeof value === "string" || typeof value === "number") {
+      return String(value);
+    }
+  }
+
+  return fallback;
 }
 
 function getExamState(
@@ -180,12 +276,27 @@ function questionFromRow(
   row: Pick<
     ExamQuestionRow,
     "id" | "sort_order" | "snapshot_content" | "snapshot_options"
-  >,
+  > &
+    Partial<
+      Pick<
+        ExamQuestionRow,
+        | "snapshot_question_type"
+        | "snapshot_description"
+        | "snapshot_settings"
+        | "snapshot_is_required"
+      >
+    >,
 ): StudentExamQuestion {
+  const options = optionsFromJson(row.snapshot_options);
+
   return {
     id: row.id,
     content: row.snapshot_content,
-    options: optionsFromJson(row.snapshot_options),
+    description: row.snapshot_description ?? null,
+    options,
+    questionType: normalizeQuestionType(row.snapshot_question_type, options),
+    settings: normalizeSettings(row.snapshot_settings),
+    isRequired: row.snapshot_is_required ?? true,
     sortOrder: row.sort_order,
   };
 }
@@ -210,21 +321,40 @@ export async function getTeacherExams(callbackUrl = "/exams") {
 
 export async function getExamBuilderData(callbackUrl = "/exams") {
   const { supabase, user } = await requireTeacher(callbackUrl);
-  const [{ data: groups }, { data: questions }] = await Promise.all([
+  const db = supabase as unknown as {
+    from(table: string): {
+      select(columns?: string): {
+        eq(column: string, value: unknown): {
+          order(
+            column: string,
+            options?: { ascending?: boolean },
+          ): PromiseLike<{ data: QuestionSetQuestionRow[] | null }>;
+        };
+      };
+    };
+  };
+  const [
+    { data: groups },
+    { data: questions },
+    { data: publicSetQuestions },
+  ] = await Promise.all([
     supabase
       .from("groups")
       .select("id,name")
       .eq("teacher_id", user.id)
       .order("created_at", { ascending: false })
       .returns<Array<Pick<GroupRow, "id" | "name">>>(),
+    db
+      .from("question_set_questions")
+      .select("*, question_sets!question_set_questions_set_id_fkey(title,teacher_id)")
+      .eq("question_sets.teacher_id", user.id)
+      .order("sort_order", { ascending: true }),
     supabase
-      .from("questions")
-      .select("id,content,options,correct_answer")
-      .eq("author_id", user.id)
-      .order("created_at", { ascending: false })
-      .returns<
-        Array<Pick<QuestionRow, "id" | "content" | "options" | "correct_answer">>
-      >(),
+      .from("public_exam_set_questions")
+      .select("*, public_exam_sets!public_exam_set_questions_set_id_fkey(title,is_published)")
+      .eq("public_exam_sets.is_published", true)
+      .order("sort_order", { ascending: true })
+      .returns<PublicSetQuestionRow[]>(),
   ]);
 
   const groupOptions: ExamGroupOption[] = (groups ?? []).map((group) => ({
@@ -232,18 +362,42 @@ export async function getExamBuilderData(callbackUrl = "/exams") {
     name: group.name,
   }));
 
-  const questionOptions: ExamQuestionOption[] = (questions ?? []).map(
+  const ownQuestionOptions: ExamQuestionOption[] = (questions ?? []).map(
     (question) => ({
       id: question.id,
       content: question.content,
+      description: question.description ?? null,
       options: optionsFromJson(question.options),
-      correctAnswer: question.correct_answer,
+      questionType: normalizeQuestionType(
+        question.question_type,
+        optionsFromJson(question.options),
+      ),
+      correctAnswer: displayAnswerFromKey(question.answer_key),
+      sourceLabel: question.question_sets?.title ?? "Question set",
     }),
   );
+  const publicQuestionOptions: ExamQuestionOption[] = (publicSetQuestions ?? [])
+    .filter((question) => question.public_exam_sets?.is_published)
+    .map((question) => {
+      const options = optionsFromJson(question.snapshot_options);
+
+      return {
+        id: question.id,
+        content: question.snapshot_content,
+        description: question.snapshot_description ?? null,
+        options,
+        questionType: normalizeQuestionType(
+          question.snapshot_question_type,
+          options,
+        ),
+        correctAnswer: question.snapshot_correct_answer,
+        sourceLabel: question.public_exam_sets?.title ?? "Public set",
+      };
+    });
 
   return {
     groups: groupOptions,
-    questions: questionOptions,
+    questions: [...ownQuestionOptions, ...publicQuestionOptions],
   };
 }
 
@@ -307,7 +461,7 @@ export async function getStudentExamDetail(examId: string) {
   const { data, error } = await supabase
     .from("exams")
     .select(
-      "id,title,group_id,starts_at,ends_at,groups!exams_group_id_fkey(id,name,users!groups_teacher_id_fkey(name,email)),exam_questions(id,sort_order,snapshot_content,snapshot_options)",
+      "id,title,group_id,starts_at,ends_at,groups!exams_group_id_fkey(id,name,users!groups_teacher_id_fkey(name,email)),exam_questions(*)",
     )
     .eq("id", id)
     .maybeSingle<StudentExamDetailRow>();

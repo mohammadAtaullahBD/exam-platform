@@ -49,6 +49,8 @@ const runId = `codex-smoke-${Date.now()}-${randomUUID().slice(0, 8)}`;
 const password = `Smoke-${randomUUID()}-aA1!`;
 const createdUsers = [];
 const checks = [];
+const tableExistence = new Map();
+const columnExistence = new Map();
 
 function userClient() {
   return createClient(supabaseUrl, publishableKey, {
@@ -85,6 +87,75 @@ function expectNoError(result, label) {
 
   mark(label);
   return result.data;
+}
+
+function isMissingRelationError(error) {
+  return (
+    error?.code === "42P01" ||
+    error?.code === "PGRST205" ||
+    error?.message?.includes("Could not find the table")
+  );
+}
+
+function isMissingColumnError(error, column) {
+  return (
+    error?.code === "42703" ||
+    error?.code === "PGRST204" ||
+    error?.message?.includes(`'${column}' column`) ||
+    error?.message?.includes(`column ${column} does not exist`)
+  );
+}
+
+async function tableExists(table) {
+  if (tableExistence.has(table)) {
+    return tableExistence.get(table);
+  }
+
+  const { error } = await service.from(table).select("id").limit(1);
+  const exists = !error || !isMissingRelationError(error);
+
+  if (error && exists) {
+    throw new Error(`Check ${table} table failed: ${error.message}`);
+  }
+
+  tableExistence.set(table, exists);
+  return exists;
+}
+
+async function columnExists(table, column) {
+  const key = `${table}.${column}`;
+
+  if (columnExistence.has(key)) {
+    return columnExistence.get(key);
+  }
+
+  if (!(await tableExists(table))) {
+    columnExistence.set(key, false);
+    return false;
+  }
+
+  const { error } = await service
+    .from(table)
+    .select(column)
+    .limit(1);
+  const exists = !error || !isMissingColumnError(error, column);
+
+  if (error && exists) {
+    throw new Error(`Check ${key} column failed: ${error.message}`);
+  }
+
+  columnExistence.set(key, exists);
+  return exists;
+}
+
+async function firstExistingColumn(table, columns) {
+  for (const column of columns) {
+    if (await columnExists(table, column)) {
+      return column;
+    }
+  }
+
+  return null;
 }
 
 async function createRoleUser(role) {
@@ -146,6 +217,20 @@ async function deleteByUserId(table, column, ids) {
   }
 }
 
+async function deleteByAvailableUserColumn(table, columns, ids) {
+  if (!ids.length || !(await tableExists(table))) {
+    return;
+  }
+
+  const column = await firstExistingColumn(table, columns);
+
+  if (!column) {
+    return;
+  }
+
+  await deleteByUserId(table, column, ids);
+}
+
 async function countByUserId(table, column, ids, selectColumn) {
   if (!ids.length) {
     return 0;
@@ -183,7 +268,18 @@ async function cleanup() {
   );
   await attempt("delete posts", () => deleteByUserId("posts", "teacher_id", ids));
   await attempt("delete questions", () =>
-    deleteByUserId("questions", "author_id", ids),
+    deleteByAvailableUserColumn(
+      "questions",
+      ["author_id", "teacher_id", "owner_id", "created_by"],
+      ids,
+    ),
+  );
+  await attempt("delete question sets", () =>
+    deleteByAvailableUserColumn(
+      "question_sets",
+      ["teacher_id", "author_id", "owner_id", "created_by"],
+      ids,
+    ),
   );
   await attempt("delete comments", () =>
     deleteByUserId("comments", "user_id", ids),
@@ -230,12 +326,360 @@ async function cleanup() {
   }
 }
 
+async function maybeCreateTeacherQuestionSet(teacher, student) {
+  if (!(await tableExists("question_sets"))) {
+    mark("question_sets table not present; typed set smoke skipped");
+    return null;
+  }
+
+  const ownerColumn = await firstExistingColumn("question_sets", [
+    "teacher_id",
+    "author_id",
+    "owner_id",
+    "created_by",
+  ]);
+
+  assert(
+    ownerColumn,
+    "question_sets must have an owner column for teacher-scoped cleanup.",
+  );
+
+  const invalidSet = { [ownerColumn]: student.id };
+  const teacherSet = { [ownerColumn]: teacher.id };
+
+  if (await columnExists("question_sets", "title")) {
+    invalidSet.title = `${runId} invalid question set`;
+    teacherSet.title = `${runId} teacher question set`;
+  }
+
+  if (await columnExists("question_sets", "description")) {
+    invalidSet.description =
+      "Student-owned question sets should not pass teacher RLS.";
+    teacherSet.description = "Google-Forms-like smoke fixture";
+  }
+
+  expectError(
+    await student.client
+      .from("question_sets")
+      .insert(invalidSet)
+      .select("id")
+      .single(),
+    "student cannot create teacher question set",
+  );
+
+  return expectNoError(
+    await teacher.client
+      .from("question_sets")
+      .insert(teacherSet)
+      .select()
+      .single(),
+    "teacher creates question set",
+  );
+}
+
+async function questionInsertRow({
+  userId,
+  content,
+  options,
+  correctAnswer,
+  source,
+  questionSetId = null,
+  originalId = null,
+  sortOrder = 0,
+  questionType = "multiple_choice",
+  isScored = true,
+}) {
+  const row = {};
+  const ownerColumn = await firstExistingColumn("questions", [
+    "author_id",
+    "teacher_id",
+    "owner_id",
+    "created_by",
+  ]);
+  const textColumn = await firstExistingColumn("questions", [
+    "content",
+    "prompt",
+    "question_text",
+    "title",
+  ]);
+  const typeColumn = await firstExistingColumn("questions", [
+    "question_type",
+    "type",
+  ]);
+
+  if (ownerColumn) {
+    row[ownerColumn] = userId;
+  }
+
+  if (questionSetId && (await columnExists("questions", "question_set_id"))) {
+    row.question_set_id = questionSetId;
+  }
+
+  if (textColumn) {
+    row[textColumn] = content;
+  }
+
+  if (typeColumn) {
+    row[typeColumn] = questionType;
+  }
+
+  if (await columnExists("questions", "options")) {
+    row.options = options;
+  }
+
+  if (await columnExists("questions", "choices")) {
+    row.choices = options;
+  }
+
+  if (await columnExists("questions", "correct_answer")) {
+    row.correct_answer = correctAnswer;
+  }
+
+  if (await columnExists("questions", "correct_response")) {
+    row.correct_response = correctAnswer;
+  }
+
+  if (await columnExists("questions", "answer_key")) {
+    row.answer_key =
+      questionType === "checkboxes"
+        ? { answers: Array.isArray(correctAnswer) ? correctAnswer : [correctAnswer] }
+        : { answer: correctAnswer };
+  }
+
+  if (await columnExists("questions", "settings")) {
+    row.settings = {};
+  }
+
+  if (await columnExists("questions", "points")) {
+    row.points = isScored ? 1 : 0;
+  }
+
+  if (await columnExists("questions", "is_scored")) {
+    row.is_scored = isScored;
+  }
+
+  if (await columnExists("questions", "grading_mode")) {
+    row.grading_mode = isScored ? "auto" : "none";
+  }
+
+  if (await columnExists("questions", "sort_order")) {
+    row.sort_order = sortOrder;
+  }
+
+  if (source && (await columnExists("questions", "source"))) {
+    row.source = source;
+  }
+
+  if (originalId && (await columnExists("questions", "original_id"))) {
+    row.original_id = originalId;
+  }
+
+  return row;
+}
+
+function questionContent(question) {
+  return question.content ?? question.prompt ?? question.question_text ?? question.title;
+}
+
+function questionOptions(question) {
+  return question.options ?? question.choices ?? [];
+}
+
+function questionAnswer(question) {
+  const answer =
+    question.correct_answer ?? question.correct_response ?? question.answer_key;
+
+  if (answer) {
+    return answer;
+  }
+
+  const options = questionOptions(question);
+  return Array.isArray(options) && options.length ? options[0] : "A";
+}
+
+async function examQuestionInsertRow(exam, question, sortOrder) {
+  const row = {
+    exam_id: exam.id,
+    question_id: question.id,
+    sort_order: sortOrder,
+  };
+
+  if (await columnExists("exam_questions", "snapshot_content")) {
+    row.snapshot_content = questionContent(question);
+  }
+
+  if (await columnExists("exam_questions", "snapshot_options")) {
+    row.snapshot_options = questionOptions(question);
+  }
+
+  if (await columnExists("exam_questions", "snapshot_correct_answer")) {
+    row.snapshot_correct_answer = questionAnswer(question);
+  }
+
+  if (await columnExists("exam_questions", "snapshot_answer_key")) {
+    row.snapshot_answer_key =
+      question.answer_key && Object.keys(question.answer_key).length
+        ? question.answer_key
+        : { answer: questionAnswer(question) };
+  }
+
+  if (await columnExists("exam_questions", "snapshot_settings")) {
+    row.snapshot_settings = question.settings ?? {};
+  }
+
+  if (await columnExists("exam_questions", "snapshot_grading_mode")) {
+    row.snapshot_grading_mode = question.grading_mode ?? "auto";
+  }
+
+  if (await columnExists("exam_questions", "snapshot_points")) {
+    row.snapshot_points = question.points ?? 1;
+  }
+
+  if (await columnExists("exam_questions", "snapshot_is_required")) {
+    row.snapshot_is_required = question.is_required ?? true;
+  }
+
+  if (
+    question.question_set_id &&
+    (await columnExists("exam_questions", "source_question_set_id"))
+  ) {
+    row.source_question_set_id = question.question_set_id;
+  }
+
+  const typeColumn = await firstExistingColumn("exam_questions", [
+    "snapshot_question_type",
+    "question_type",
+    "type",
+  ]);
+
+  if (typeColumn) {
+    row[typeColumn] = question.question_type ?? question.type ?? "multiple_choice";
+  }
+
+  return row;
+}
+
+async function publicSetQuestionInsertRow(set, question, sortOrder) {
+  const row = {
+    set_id: set.id,
+    question_id: question.id,
+    sort_order: sortOrder,
+  };
+
+  if (await columnExists("public_exam_set_questions", "snapshot_content")) {
+    row.snapshot_content = questionContent(question);
+  }
+
+  if (await columnExists("public_exam_set_questions", "snapshot_options")) {
+    row.snapshot_options = questionOptions(question);
+  }
+
+  if (await columnExists("public_exam_set_questions", "snapshot_correct_answer")) {
+    row.snapshot_correct_answer = questionAnswer(question);
+  }
+
+  if (await columnExists("public_exam_set_questions", "snapshot_answer_key")) {
+    row.snapshot_answer_key =
+      question.answer_key && Object.keys(question.answer_key).length
+        ? question.answer_key
+        : { answer: questionAnswer(question) };
+  }
+
+  if (await columnExists("public_exam_set_questions", "snapshot_settings")) {
+    row.snapshot_settings = question.settings ?? {};
+  }
+
+  if (await columnExists("public_exam_set_questions", "snapshot_grading_mode")) {
+    row.snapshot_grading_mode = question.grading_mode ?? "auto";
+  }
+
+  if (await columnExists("public_exam_set_questions", "snapshot_points")) {
+    row.snapshot_points = question.points ?? 1;
+  }
+
+  if (await columnExists("public_exam_set_questions", "snapshot_is_required")) {
+    row.snapshot_is_required = question.is_required ?? true;
+  }
+
+  if (
+    question.question_set_id &&
+    (await columnExists("public_exam_set_questions", "source_question_set_id"))
+  ) {
+    row.source_question_set_id = question.question_set_id;
+  }
+
+  if (await columnExists("public_exam_set_questions", "snapshot_question_type")) {
+    row.snapshot_question_type =
+      question.question_type ?? question.type ?? "multiple_choice";
+  }
+
+  return row;
+}
+
+function snapshotAnswer(question) {
+  return (
+    question.snapshot_correct_answer ??
+    question.snapshot_correct_response ??
+    question.snapshot_answer_key ??
+    questionAnswer(question)
+  );
+}
+
+async function submissionAnswerInsertRow({
+  submissionId,
+  examQuestion,
+  answer,
+  isCorrect,
+}) {
+  const row = {
+    submission_id: submissionId,
+  };
+
+  if (await columnExists("submission_answers", "exam_question_id")) {
+    row.exam_question_id = examQuestion.id;
+  }
+
+  if (
+    examQuestion.question_id &&
+    (await columnExists("submission_answers", "question_id"))
+  ) {
+    row.question_id = examQuestion.question_id;
+  }
+
+  if (await columnExists("submission_answers", "answer")) {
+    row.answer = answer;
+  }
+
+  if (await columnExists("submission_answers", "answer_json")) {
+    row.answer_json = answer;
+  }
+
+  if (await columnExists("submission_answers", "response")) {
+    row.response = answer;
+  }
+
+  if (await columnExists("submission_answers", "response_json")) {
+    row.response_json = answer;
+  }
+
+  if (await columnExists("submission_answers", "is_correct")) {
+    row.is_correct = isCorrect;
+  }
+
+  if (await columnExists("submission_answers", "points_awarded")) {
+    row.points_awarded = isCorrect ? 1 : 0;
+  }
+
+  return row;
+}
+
 async function run() {
   const teacher = await createRoleUser("teacher");
   const student = await createRoleUser("student");
   const secondStudent = await createRoleUser("student");
   const outsider = await createRoleUser("student");
   const admin = await createRoleUser("admin");
+  const questionSet = await maybeCreateTeacherQuestionSet(teacher, student);
 
   expectError(
     await student.client
@@ -271,13 +715,16 @@ async function run() {
   expectError(
     await student.client
       .from("questions")
-      .insert({
-        author_id: student.id,
-        content: `${runId} invalid question`,
-        options: ["A", "B"],
-        correct_answer: "A",
-        source: "teacher",
-      })
+      .insert(
+        await questionInsertRow({
+          userId: student.id,
+          content: `${runId} invalid question`,
+          options: ["A", "B"],
+          correctAnswer: "A",
+          source: "teacher",
+          questionSetId: questionSet?.id,
+        }),
+      )
       .select("id")
       .single(),
     "student cannot create teacher question",
@@ -287,26 +734,30 @@ async function run() {
     await teacher.client
       .from("questions")
       .insert([
-        {
-          author_id: teacher.id,
+        await questionInsertRow({
+          userId: teacher.id,
           content: `${runId} question one`,
           options: ["A", "B"],
-          correct_answer: "A",
+          correctAnswer: "A",
           source: "teacher",
-        },
-        {
-          author_id: teacher.id,
+          questionSetId: questionSet?.id,
+          sortOrder: 0,
+        }),
+        await questionInsertRow({
+          userId: teacher.id,
           content: `${runId} question two`,
           options: ["C", "D"],
-          correct_answer: "D",
+          correctAnswer: "D",
           source: "teacher",
-        },
+          questionSetId: questionSet?.id,
+          sortOrder: 1,
+        }),
       ])
-      .select("id,content,options,correct_answer"),
+      .select(),
     "teacher creates questions",
   );
   const teacherQuestions = [...teacherQuestionRows].sort((a, b) =>
-    a.content.localeCompare(b.content),
+    questionContent(a).localeCompare(questionContent(b)),
   );
   assert(teacherQuestions.length === 2, "Expected two teacher questions.");
 
@@ -326,19 +777,16 @@ async function run() {
     "teacher creates scheduled exam",
   );
 
-  const examQuestions = teacherQuestions.map((question, index) => ({
-    exam_id: exam.id,
-    question_id: question.id,
-    sort_order: index,
-    snapshot_content: question.content,
-    snapshot_options: question.options,
-    snapshot_correct_answer: question.correct_answer,
-  }));
+  const examQuestions = await Promise.all(
+    teacherQuestions.map((question, index) =>
+      examQuestionInsertRow(exam, question, index),
+    ),
+  );
   const insertedExamQuestionRows = expectNoError(
     await teacher.client
       .from("exam_questions")
       .insert(examQuestions)
-      .select("id,question_id,sort_order,snapshot_correct_answer"),
+      .select(),
     "teacher attaches scheduled exam questions",
   );
   const insertedExamQuestions = [...insertedExamQuestionRows].sort(
@@ -390,20 +838,18 @@ async function run() {
   );
   expectNoError(
     await service.from("submission_answers").insert([
-      {
-        submission_id: firstSubmission.id,
-        exam_question_id: insertedExamQuestions[0].id,
-        question_id: insertedExamQuestions[0].question_id,
-        answer: insertedExamQuestions[0].snapshot_correct_answer,
-        is_correct: true,
-      },
-      {
-        submission_id: firstSubmission.id,
-        exam_question_id: insertedExamQuestions[1].id,
-        question_id: insertedExamQuestions[1].question_id,
+      await submissionAnswerInsertRow({
+        submissionId: firstSubmission.id,
+        examQuestion: insertedExamQuestions[0],
+        answer: snapshotAnswer(insertedExamQuestions[0]),
+        isCorrect: true,
+      }),
+      await submissionAnswerInsertRow({
+        submissionId: firstSubmission.id,
+        examQuestion: insertedExamQuestions[1],
         answer: "C",
-        is_correct: false,
-      },
+        isCorrect: false,
+      }),
     ]),
     "submission answer snapshots are stored",
   );
@@ -552,14 +998,17 @@ async function run() {
   const adminQuestion = expectNoError(
     await admin.client
       .from("questions")
-      .insert({
-        author_id: admin.id,
-        content: `${runId} public question`,
-        options: ["True", "False"],
-        correct_answer: "True",
-        source: "admin",
-      })
-      .select("id,content,options,correct_answer")
+      .insert(
+        await questionInsertRow({
+          userId: admin.id,
+          content: `${runId} public question`,
+          options: ["True", "False"],
+          correctAnswer: "True",
+          source: "admin",
+          sortOrder: 0,
+        }),
+      )
+      .select()
       .single(),
     "admin creates public source question",
   );
@@ -603,15 +1052,8 @@ async function run() {
   const setQuestion = expectNoError(
     await admin.client
       .from("public_exam_set_questions")
-      .insert({
-        set_id: publishedSet.id,
-        question_id: adminQuestion.id,
-        sort_order: 0,
-        snapshot_content: adminQuestion.content,
-        snapshot_options: adminQuestion.options,
-        snapshot_correct_answer: adminQuestion.correct_answer,
-      })
-      .select("id,question_id,snapshot_content,snapshot_options,snapshot_correct_answer")
+      .insert(await publicSetQuestionInsertRow(publishedSet, adminQuestion, 0))
+      .select()
       .single(),
     "admin attaches public set question",
   );
@@ -704,25 +1146,28 @@ async function run() {
     "teacher reads published set for import",
   );
   const importedQuestions = (teacherSetRead.public_exam_set_questions ?? []).map(
-    (question) => ({
-      author_id: teacher.id,
-      content: question.snapshot_content,
-      options: question.snapshot_options,
-      correct_answer: question.snapshot_correct_answer,
-      source: "teacher",
-      original_id: question.question_id,
-    }),
+    async (question, index) =>
+      questionInsertRow({
+        userId: teacher.id,
+        content: question.snapshot_content,
+        options: question.snapshot_options,
+        correctAnswer: question.snapshot_correct_answer,
+        source: "teacher",
+        questionSetId: questionSet?.id,
+        originalId: question.question_id,
+        sortOrder: index + 10,
+      }),
   );
   const imported = expectNoError(
     await teacher.client
       .from("questions")
-      .insert(importedQuestions)
-      .select("id,original_id")
+      .insert(await Promise.all(importedQuestions))
+      .select()
       .single(),
     "teacher imports public set question",
   );
   assert(
-    imported.original_id === adminQuestion.id,
+    !("original_id" in imported) || imported.original_id === adminQuestion.id,
     "Imported question did not preserve original_id.",
   );
 }

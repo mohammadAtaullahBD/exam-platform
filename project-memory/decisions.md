@@ -37,21 +37,32 @@ After that, admins use `/api/admin/users/[userId]/role` to promote/demote users.
 
 The hidden `/admin/users` route provides a private super-user UI over the same trusted role-management flow. It is not linked from public or role dashboards.
 
-## Question Bank Shape
+## Question Set Shape
 
-Teacher question bank items live in `public.questions`.
+Teachers build Google-Forms-like question sets in `public.question_sets` and `public.question_set_questions`.
 
-- Options are stored as a validated JSONB array of strings so exam-building can keep the answer set together without a separate option table.
-- `correct_answer` stores the matching option text for now; future exam submissions should compare against the stored question snapshot or the row value used when the exam is assembled.
-- `source` is `teacher` or `admin`; teacher-created rows use `teacher`, while `original_id` is reserved for future copies of admin-authored questions.
-- Validation helpers stay in the private schema, with explicit authenticated grants, because the table check constraints need to execute them during teacher writes.
+- A question set stores the teacher owner, title, optional description, timestamps, source, and optional original set reference.
+- Ordered set questions store the prompt, help text, response type, options, settings, answer key, required flag, points, and grading mode.
+- Supported response types are `short_answer`, `paragraph`, `multiple_choice`, `checkboxes`, `dropdown`, `linear_scale`, and `rating`. File upload is intentionally not supported.
+- Paragraph questions are accepted as responses but are unscored until a manual grading workflow exists.
+- `public.questions` remains for legacy/admin/public-set compatibility and keeps source/original tracking for copied admin questions.
+- Validation helpers stay in the private schema, with explicit authenticated grants, because table check constraints need to execute during authenticated writes.
+
+## Question Sets
+
+The active teacher questions direction is question sets rather than standalone bank rows.
+
+- The `/questions` UI now targets teacher-owned sets with title/description and ordered question items.
+- Intended item fields are content, optional description/help text, `question_type`, options JSON, settings JSON, answer key JSON, `is_required`, points, and grading mode.
+- Paragraph items are currently unscored with `grading_mode = none` and `points = 0`.
+- Generated Supabase types now include `question_sets` and `question_set_questions`; app mutations persist sets through server actions.
 
 ## Exam Snapshots
 
 Teacher-created exams live in `public.exams`, with ordered question rows in `public.exam_questions`.
 
 - Exam state is derived from `starts_at` and `ends_at` using database time; teachers can mutate only scheduled exams.
-- `exam_questions` snapshots selected question content, options, and correct answer so later question-bank edits do not rewrite an already assembled exam.
+- `exam_questions` snapshots selected question content, response type, help text, options, settings, answer key, grading mode, points, and required flag so later question-set edits do not rewrite an already assembled exam.
 - A `closed_at` timestamp and `private.close_due_exams()` exist for future merit-list processing, while visible state remains derived from the schedule.
 - Server-rendered exam, merit, progress, and practice surfaces use authenticated `public.database_now()` to avoid Node.js clock drift when deciding whether an exam is scheduled, active, or closed.
 
@@ -62,6 +73,8 @@ Group exam submissions live in `public.submissions` and `public.submission_answe
 - One student can submit once per group exam.
 - Server actions verify the signed-in student, group membership, and selected answers before using the service-role client to store the scored submission.
 - A database trigger rejects late inserts using database time, so client timer drift cannot create valid expired submissions.
+- Submitted answers store both a legacy text answer and a JSON response payload.
+- Automatic scoring supports multiple choice, dropdown, checkboxes, short answer, linear scale, and rating. Paragraph answers are stored as ungraded responses and do not affect the automatic denominator.
 - Merit lists read submission summaries after close; raw answer rows are limited to the owning student, owning teacher after close, or admin.
 
 ## Public Exams
@@ -69,9 +82,9 @@ Group exam submissions live in `public.submissions` and `public.submission_answe
 Public exam sets use separate set and attempt tables instead of overloading group exams.
 
 - Hidden super-users create public sets and source admin-authored questions.
-- Set questions snapshot content/options/answers so later edits do not alter an existing public set.
+- Set questions snapshot content, response type, options, settings, answer keys, and scoring metadata so later edits do not alter an existing public set.
 - Students can attempt published sets multiple times; no leaderboard is generated.
-- Teachers copy published set questions into their own bank with `original_id` preserved for analytics and customization.
+- Teachers copy published public sets into editable teacher-owned question sets for customization.
 
 ## Social Tables
 

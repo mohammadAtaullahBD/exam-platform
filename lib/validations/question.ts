@@ -13,6 +13,18 @@ const optionSchema = z.preprocess(
     .max(160, "Option must be 160 characters or fewer."),
 );
 
+const questionTypeSchema = z.enum([
+  "short_answer",
+  "paragraph",
+  "multiple_choice",
+  "checkboxes",
+  "dropdown",
+  "linear_scale",
+  "rating",
+]);
+
+const gradingModeSchema = z.enum(["auto", "none"]);
+
 export const questionSchema = z
   .object({
     content: z.preprocess(
@@ -40,9 +52,8 @@ export const questionSchema = z
     }
 
     const normalized = data.options.map((option) => option.toLowerCase());
-    const uniqueOptions = new Set(normalized);
 
-    if (uniqueOptions.size !== data.options.length) {
+    if (new Set(normalized).size !== data.options.length) {
       context.addIssue({
         code: "custom",
         message: "Options must be unique.",
@@ -56,12 +67,217 @@ export const questionSchema = z
     correctAnswer: data.options[data.correctOptionIndex] ?? "",
   }));
 
-export const questionFiltersSchema = z.object({
-  q: z.preprocess(formString, z.string().trim().max(120)).optional(),
-  source: z
-    .preprocess(formString, z.enum(["all", "teacher", "admin"]).catch("all"))
-    .optional(),
+export const questionSetSchema = z.object({
+  title: z.preprocess(
+    formString,
+    z
+      .string()
+      .trim()
+      .min(1, "Set title is required.")
+      .max(120, "Set title must be 120 characters or fewer."),
+  ),
+  description: z
+    .preprocess(formString, z.string().trim().max(1000))
+    .transform((value) => (value ? value : null)),
 });
 
-export type QuestionInput = z.infer<typeof questionSchema>;
+export const questionSetItemSchema = z
+  .object({
+    content: z.preprocess(
+      formString,
+      z
+        .string()
+        .trim()
+        .min(1, "Question text is required.")
+        .max(2000, "Question text must be 2,000 characters or fewer."),
+    ),
+    description: z
+      .preprocess(formString, z.string().trim().max(1000))
+      .transform((value) => (value ? value : null)),
+    questionType: questionTypeSchema,
+    options: z.array(optionSchema).max(12),
+    answerKey: z.preprocess(formString, z.string().trim().max(1000)),
+    isRequired: z.boolean(),
+    points: z.coerce.number().int().min(0).max(100),
+    gradingMode: gradingModeSchema,
+    scaleMin: z.coerce.number().int().min(0).max(10).optional(),
+    scaleMax: z.coerce.number().int().min(1).max(10).optional(),
+    scaleMinLabel: z.preprocess(formString, z.string().trim().max(80)),
+    scaleMaxLabel: z.preprocess(formString, z.string().trim().max(80)),
+    ratingMax: z.coerce.number().int().min(2).max(10).optional(),
+  })
+  .superRefine((data, context) => {
+    const choiceTypes = ["multiple_choice", "checkboxes", "dropdown"];
+
+    if (choiceTypes.includes(data.questionType) && data.options.length < 2) {
+      context.addIssue({
+        code: "custom",
+        message: "Choice questions need at least two options.",
+        path: ["options"],
+      });
+    }
+
+    const normalized = data.options.map((option) => option.toLowerCase());
+
+    if (new Set(normalized).size !== normalized.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Options must be unique.",
+        path: ["options"],
+      });
+    }
+
+    if (data.questionType === "linear_scale") {
+      const min = data.scaleMin ?? 1;
+      const max = data.scaleMax ?? 5;
+
+      if (min >= max) {
+        context.addIssue({
+          code: "custom",
+          message: "Scale minimum must be lower than maximum.",
+          path: ["scaleMin"],
+        });
+      }
+    }
+
+    if (data.questionType !== "paragraph" && data.gradingMode === "auto") {
+      const answerKey = data.answerKey.trim();
+
+      if (!answerKey) {
+        context.addIssue({
+          code: "custom",
+          message: "Auto-graded questions need an answer key.",
+          path: ["answerKey"],
+        });
+      }
+
+      if (
+        ["multiple_choice", "dropdown"].includes(data.questionType) &&
+        answerKey &&
+        !data.options.includes(answerKey)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Answer key must match one of the options.",
+          path: ["answerKey"],
+        });
+      }
+
+      if (data.questionType === "checkboxes" && answerKey) {
+        const answers = answerKey
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
+
+        if (!answers.length || answers.some((answer) => !data.options.includes(answer))) {
+          context.addIssue({
+            code: "custom",
+            message: "Checkbox answer key must list option text separated by commas.",
+            path: ["answerKey"],
+          });
+        }
+      }
+
+      if (
+        (data.questionType === "linear_scale" || data.questionType === "rating") &&
+        answerKey
+      ) {
+        const answer = Number(answerKey);
+        const min = data.questionType === "linear_scale" ? data.scaleMin ?? 1 : 1;
+        const max =
+          data.questionType === "linear_scale"
+            ? data.scaleMax ?? 5
+            : data.ratingMax ?? 5;
+
+        if (!Number.isInteger(answer) || answer < min || answer > max) {
+          context.addIssue({
+            code: "custom",
+            message: "Answer key must be a whole number in range.",
+            path: ["answerKey"],
+          });
+        }
+      }
+    }
+  })
+  .transform((data) => {
+    if (data.questionType === "paragraph") {
+      return {
+        content: data.content,
+        description: data.description,
+        questionType: data.questionType,
+        options: [],
+        settings: {},
+        answerKey: {},
+        isRequired: data.isRequired,
+        points: 0,
+        gradingMode: "none" as const,
+      };
+    }
+
+    if (data.questionType === "linear_scale") {
+      return {
+        content: data.content,
+        description: data.description,
+        questionType: data.questionType,
+        options: [],
+        settings: {
+          min: data.scaleMin ?? 1,
+          max: data.scaleMax ?? 5,
+          minLabel: data.scaleMinLabel || null,
+          maxLabel: data.scaleMaxLabel || null,
+        },
+        answerKey: data.answerKey ? { value: data.answerKey } : {},
+        isRequired: data.isRequired,
+        points: data.points,
+        gradingMode: data.gradingMode,
+      };
+    }
+
+    if (data.questionType === "rating") {
+      return {
+        content: data.content,
+        description: data.description,
+        questionType: data.questionType,
+        options: [],
+        settings: {
+          max: data.ratingMax ?? 5,
+        },
+        answerKey: data.answerKey ? { value: data.answerKey } : {},
+        isRequired: data.isRequired,
+        points: data.points,
+        gradingMode: data.gradingMode,
+      };
+    }
+
+    return {
+      content: data.content,
+      description: data.description,
+      questionType: data.questionType,
+      options:
+        data.questionType === "short_answer"
+          ? []
+          : data.options,
+      settings: {},
+      answerKey: data.answerKey
+        ? data.questionType === "checkboxes" || data.questionType === "short_answer"
+          ? {
+              values: data.answerKey
+                .split(",")
+                .map((value) => value.trim())
+                .filter(Boolean),
+            }
+          : { value: data.answerKey }
+        : {},
+      isRequired: data.isRequired,
+      points: data.points,
+      gradingMode: data.gradingMode,
+    };
+  });
+
+export const questionFiltersSchema = z.object({
+  q: z.preprocess(formString, z.string().trim().max(120)).optional(),
+});
+
+export type QuestionSetInput = z.infer<typeof questionSetSchema>;
+export type QuestionSetItemInput = z.infer<typeof questionSetItemSchema>;
 export type QuestionFiltersInput = z.infer<typeof questionFiltersSchema>;

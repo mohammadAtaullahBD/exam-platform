@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-06-01
+
+- Replaced teacher `/questions` with a Google-Forms-like question-set builder/list UI and server-action-backed set mutations.
+- Added migration `20260531141254_google_form_question_sets.sql` with `question_sets`, `question_set_questions`, typed question metadata, typed snapshots, JSON responses, and point fields.
+- Added question-set validation/types/actions/queries/components for short answer, paragraph, multiple choice, checkboxes, dropdown, linear scale, and rating question items.
+- Updated group exams, public exams, progress/practice, and smoke checks for typed question snapshots and responses.
+- Adapted teacher public-set import to create an editable teacher-owned question set.
+- Confirmed Vercel Speed Insights remains installed and mounted for the next redeployment.
+
 ## 2026-05-31
 
 - Added Vercel Speed Insights with `@vercel/speed-insights` and the root Next.js `<SpeedInsights />` component.

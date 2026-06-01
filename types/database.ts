@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -62,30 +62,54 @@ export type Database = {
           exam_id: string
           id: string
           question_id: string | null
+          snapshot_answer_key: Json
           snapshot_content: string
           snapshot_correct_answer: string
+          snapshot_description: string | null
+          snapshot_grading_mode: string
+          snapshot_is_required: boolean
           snapshot_options: Json
+          snapshot_points: number
+          snapshot_question_type: string
+          snapshot_settings: Json
           sort_order: number
+          source_question_set_id: string | null
         }
         Insert: {
           created_at?: string
           exam_id: string
           id?: string
           question_id?: string | null
+          snapshot_answer_key?: Json
           snapshot_content: string
-          snapshot_correct_answer: string
-          snapshot_options: Json
+          snapshot_correct_answer?: string
+          snapshot_description?: string | null
+          snapshot_grading_mode?: string
+          snapshot_is_required?: boolean
+          snapshot_options?: Json
+          snapshot_points?: number
+          snapshot_question_type?: string
+          snapshot_settings?: Json
           sort_order: number
+          source_question_set_id?: string | null
         }
         Update: {
           created_at?: string
           exam_id?: string
           id?: string
           question_id?: string | null
+          snapshot_answer_key?: Json
           snapshot_content?: string
           snapshot_correct_answer?: string
+          snapshot_description?: string | null
+          snapshot_grading_mode?: string
+          snapshot_is_required?: boolean
           snapshot_options?: Json
+          snapshot_points?: number
+          snapshot_question_type?: string
+          snapshot_settings?: Json
           sort_order?: number
+          source_question_set_id?: string | null
         }
         Relationships: [
           {
@@ -100,6 +124,13 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_source_question_set_id_fkey"
+            columns: ["source_question_set_id"]
+            isOneToOne: false
+            referencedRelation: "question_sets"
             referencedColumns: ["id"]
           },
         ]
@@ -250,27 +281,42 @@ export type Database = {
           answer: string
           attempt_id: string
           created_at: string
+          grading_status: string
           id: string
           is_correct: boolean
+          is_gradable: boolean
+          max_points: number
           question_id: string | null
+          response: Json
+          score_points: number
           set_question_id: string
         }
         Insert: {
           answer: string
           attempt_id: string
           created_at?: string
+          grading_status?: string
           id?: string
           is_correct?: boolean
+          is_gradable?: boolean
+          max_points?: number
           question_id?: string | null
+          response?: Json
+          score_points?: number
           set_question_id: string
         }
         Update: {
           answer?: string
           attempt_id?: string
           created_at?: string
+          grading_status?: string
           id?: string
           is_correct?: boolean
+          is_gradable?: boolean
+          max_points?: number
           question_id?: string | null
+          response?: Json
+          score_points?: number
           set_question_id?: string
         }
         Relationships: [
@@ -302,27 +348,33 @@ export type Database = {
           created_at: string
           id: string
           score: number
+          score_points: number
           set_id: string
           student_id: string
           submitted_at: string
+          total_points: number
           total_questions: number
         }
         Insert: {
           created_at?: string
           id?: string
           score?: number
+          score_points?: number
           set_id: string
           student_id: string
           submitted_at?: string
+          total_points?: number
           total_questions?: number
         }
         Update: {
           created_at?: string
           id?: string
           score?: number
+          score_points?: number
           set_id?: string
           student_id?: string
           submitted_at?: string
+          total_points?: number
           total_questions?: number
         }
         Relationships: [
@@ -348,30 +400,54 @@ export type Database = {
           id: string
           question_id: string | null
           set_id: string
+          snapshot_answer_key: Json
           snapshot_content: string
           snapshot_correct_answer: string
+          snapshot_description: string | null
+          snapshot_grading_mode: string
+          snapshot_is_required: boolean
           snapshot_options: Json
+          snapshot_points: number
+          snapshot_question_type: string
+          snapshot_settings: Json
           sort_order: number
+          source_question_set_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           question_id?: string | null
           set_id: string
+          snapshot_answer_key?: Json
           snapshot_content: string
-          snapshot_correct_answer: string
-          snapshot_options: Json
+          snapshot_correct_answer?: string
+          snapshot_description?: string | null
+          snapshot_grading_mode?: string
+          snapshot_is_required?: boolean
+          snapshot_options?: Json
+          snapshot_points?: number
+          snapshot_question_type?: string
+          snapshot_settings?: Json
           sort_order: number
+          source_question_set_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           question_id?: string | null
           set_id?: string
+          snapshot_answer_key?: Json
           snapshot_content?: string
           snapshot_correct_answer?: string
+          snapshot_description?: string | null
+          snapshot_grading_mode?: string
+          snapshot_is_required?: boolean
           snapshot_options?: Json
+          snapshot_points?: number
+          snapshot_question_type?: string
+          snapshot_settings?: Json
           sort_order?: number
+          source_question_set_id?: string | null
         }
         Relationships: [
           {
@@ -386,6 +462,13 @@ export type Database = {
             columns: ["set_id"]
             isOneToOne: false
             referencedRelation: "public_exam_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_exam_set_questions_source_question_set_id_fkey"
+            columns: ["source_question_set_id"]
+            isOneToOne: false
+            referencedRelation: "question_sets"
             referencedColumns: ["id"]
           },
         ]
@@ -428,37 +511,174 @@ export type Database = {
           },
         ]
       }
+      question_set_questions: {
+        Row: {
+          answer_key: Json
+          content: string
+          created_at: string
+          description: string | null
+          grading_mode: string
+          id: string
+          is_required: boolean
+          options: Json
+          original_question_id: string | null
+          points: number
+          question_type: string
+          set_id: string
+          settings: Json
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          answer_key?: Json
+          content: string
+          created_at?: string
+          description?: string | null
+          grading_mode?: string
+          id?: string
+          is_required?: boolean
+          options?: Json
+          original_question_id?: string | null
+          points?: number
+          question_type?: string
+          set_id: string
+          settings?: Json
+          sort_order: number
+          updated_at?: string
+        }
+        Update: {
+          answer_key?: Json
+          content?: string
+          created_at?: string
+          description?: string | null
+          grading_mode?: string
+          id?: string
+          is_required?: boolean
+          options?: Json
+          original_question_id?: string | null
+          points?: number
+          question_type?: string
+          set_id?: string
+          settings?: Json
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_set_questions_original_question_id_fkey"
+            columns: ["original_question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_set_questions_set_id_fkey"
+            columns: ["set_id"]
+            isOneToOne: false
+            referencedRelation: "question_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_sets: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          original_id: string | null
+          source: string
+          teacher_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          original_id?: string | null
+          source?: string
+          teacher_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          original_id?: string | null
+          source?: string
+          teacher_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_sets_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       questions: {
         Row: {
+          answer_key: Json
           author_id: string
           content: string
           correct_answer: string
           created_at: string
+          description: string | null
+          grading_mode: string
           id: string
+          is_required: boolean
           options: Json
           original_id: string | null
+          points: number
+          question_set_id: string | null
+          question_type: string
+          settings: Json
+          sort_order: number
           source: string
           updated_at: string
         }
         Insert: {
+          answer_key?: Json
           author_id: string
           content: string
-          correct_answer: string
+          correct_answer?: string
           created_at?: string
+          description?: string | null
+          grading_mode?: string
           id?: string
-          options: Json
+          is_required?: boolean
+          options?: Json
           original_id?: string | null
+          points?: number
+          question_set_id?: string | null
+          question_type?: string
+          settings?: Json
+          sort_order?: number
           source?: string
           updated_at?: string
         }
         Update: {
+          answer_key?: Json
           author_id?: string
           content?: string
           correct_answer?: string
           created_at?: string
+          description?: string | null
+          grading_mode?: string
           id?: string
+          is_required?: boolean
           options?: Json
           original_id?: string | null
+          points?: number
+          question_set_id?: string | null
+          question_type?: string
+          settings?: Json
+          sort_order?: number
           source?: string
           updated_at?: string
         }
@@ -475,6 +695,13 @@ export type Database = {
             columns: ["original_id"]
             isOneToOne: false
             referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "question_sets"
             referencedColumns: ["id"]
           },
         ]
@@ -523,27 +750,42 @@ export type Database = {
           answer: string
           created_at: string
           exam_question_id: string
+          grading_status: string
           id: string
           is_correct: boolean
+          is_gradable: boolean
+          max_points: number
           question_id: string | null
+          response: Json
+          score_points: number
           submission_id: string
         }
         Insert: {
           answer: string
           created_at?: string
           exam_question_id: string
+          grading_status?: string
           id?: string
           is_correct?: boolean
+          is_gradable?: boolean
+          max_points?: number
           question_id?: string | null
+          response?: Json
+          score_points?: number
           submission_id: string
         }
         Update: {
           answer?: string
           created_at?: string
           exam_question_id?: string
+          grading_status?: string
           id?: string
           is_correct?: boolean
+          is_gradable?: boolean
+          max_points?: number
           question_id?: string | null
+          response?: Json
+          score_points?: number
           submission_id?: string
         }
         Relationships: [
@@ -576,8 +818,10 @@ export type Database = {
           exam_id: string
           id: string
           score: number
+          score_points: number
           student_id: string
           submitted_at: string
+          total_points: number
           total_questions: number
         }
         Insert: {
@@ -585,8 +829,10 @@ export type Database = {
           exam_id: string
           id?: string
           score?: number
+          score_points?: number
           student_id: string
           submitted_at?: string
+          total_points?: number
           total_questions?: number
         }
         Update: {
@@ -594,8 +840,10 @@ export type Database = {
           exam_id?: string
           id?: string
           score?: number
+          score_points?: number
           student_id?: string
           submitted_at?: string
+          total_points?: number
           total_questions?: number
         }
         Relationships: [

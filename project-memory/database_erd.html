@@ -36,11 +36,33 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
     uuid student_id FK
     timestamp joined_at
   }
+  question_sets {
+    uuid id PK
+    uuid teacher_id FK
+    text title
+    text description
+    text source
+    uuid original_id
+    timestamp created_at
+  }
+  question_set_questions {
+    uuid id PK
+    uuid set_id FK
+    uuid original_question_id FK
+    text content
+    text question_type
+    jsonb options
+    jsonb answer_key
+    int sort_order
+  }
   questions {
     uuid id PK
     uuid author_id FK
+    uuid question_set_id FK
     text content
+    text question_type
     jsonb options
+    jsonb answer_key
     text correct_answer
     text source
     timestamp created_at
@@ -55,13 +77,17 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
   exam_questions {
     uuid exam_id FK
     uuid question_id FK
+    uuid source_question_set_id FK
     int sort_order
+    text snapshot_question_type
   }
   submissions {
     uuid id PK
     uuid exam_id FK
     uuid student_id FK
     int score
+    decimal score_points
+    decimal max_points
     timestamp submitted_at
   }
   submission_answers {
@@ -70,7 +96,9 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
     uuid exam_question_id FK
     uuid question_id FK
     text answer
+    jsonb response
     bool is_correct
+    decimal score_points
   }
   posts {
     uuid id PK
@@ -102,7 +130,9 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
     uuid id PK
     uuid set_id FK
     uuid question_id FK
+    uuid source_question_set_id FK
     int sort_order
+    text snapshot_question_type
   }
   public_exam_attempts {
     uuid id PK
@@ -110,6 +140,8 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
     uuid student_id FK
     int score
     int total_questions
+    decimal score_points
+    decimal max_points
     timestamp submitted_at
   }
   public_exam_attempt_answers {
@@ -118,16 +150,22 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
     uuid set_question_id FK
     uuid question_id FK
     text answer
+    jsonb response
     bool is_correct
+    decimal score_points
   }
 
   profiles ||--o{ groups : teaches
   groups ||--o{ group_members : has
   profiles ||--o{ group_members : enrolled
+  profiles ||--o{ question_sets : owns
+  question_sets ||--o{ question_set_questions : contains
   profiles ||--o{ questions : writes
+  question_sets ||--o{ questions : mirrors
   groups ||--o{ exams : contains
   exams ||--o{ exam_questions : uses
   questions ||--o{ exam_questions : included_in
+  question_sets ||--o{ exam_questions : source_set
   exams ||--o{ submissions : receives
   profiles ||--o{ submissions : submits
   submissions ||--o{ submission_answers : has
@@ -138,6 +176,7 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
   posts ||--o{ comments : receives
   public_exam_sets ||--o{ public_exam_set_questions : contains
   questions ||--o{ public_exam_set_questions : snapshots
+  question_sets ||--o{ public_exam_set_questions : source_set
   public_exam_sets ||--o{ public_exam_attempts : receives
   profiles ||--o{ public_exam_attempts : attempts
   public_exam_attempts ||--o{ public_exam_attempt_answers : has

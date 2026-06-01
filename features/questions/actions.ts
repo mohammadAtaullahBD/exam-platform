@@ -7,18 +7,66 @@ import { redirect } from "next/navigation";
 
 import { toUserRole } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
-import { questionSchema } from "@/lib/validations/question";
-import type { Database } from "@/types/database";
+import {
+  questionSetItemSchema,
+  questionSetSchema,
+} from "@/lib/validations/question";
+import type { Json } from "@/types/database";
 
-import type { QuestionActionState, QuestionImportActionState } from "./types";
+import type {
+  QuestionImportActionState,
+  QuestionSetActionState,
+} from "./types";
 
-type PublicExamSetQuestionRow =
-  Database["public"]["Tables"]["public_exam_set_questions"]["Row"];
+type UntypedSupabase = {
+  from(table: string): UntypedQuery;
+};
 
-type PublicExamSetWithQuestionsRow =
-  Database["public"]["Tables"]["public_exam_sets"]["Row"] & {
-    public_exam_set_questions: PublicExamSetQuestionRow[] | null;
-  };
+type DbError = {
+  code?: string;
+  message?: string;
+};
+
+type DbResponse<T = unknown> = {
+  data: T | null;
+  error: DbError | null;
+};
+
+type UntypedQuery<T = unknown> = PromiseLike<DbResponse<T>> & {
+  select(columns?: string): UntypedQuery<T>;
+  insert(values: unknown): UntypedQuery<T>;
+  update(values: unknown): UntypedQuery<T>;
+  delete(): UntypedQuery<T>;
+  eq(column: string, value: unknown): UntypedQuery<T>;
+  single(): UntypedQuery<T>;
+};
+
+type ParsedQuestionSetQuestion = {
+  content: string;
+  description: string | null;
+  questionType: string;
+  options: string[];
+  settings: Json;
+  answerKey: Json;
+  isRequired: boolean;
+  points: number;
+  gradingMode: string;
+};
+
+type PublicExamSetQuestionRow = {
+  question_id: string | null;
+  snapshot_content: string;
+  snapshot_options: Json;
+  snapshot_correct_answer: string;
+  sort_order: number;
+};
+
+type PublicExamSetWithQuestionsRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  public_exam_set_questions: PublicExamSetQuestionRow[] | null;
+};
 
 async function requireTeacher(callbackUrl: string) {
   const supabase = await createClient();
@@ -35,22 +83,122 @@ async function requireTeacher(callbackUrl: string) {
     redirect("/dashboard");
   }
 
-  return { supabase, user };
+  return { db: supabase as unknown as UntypedSupabase, supabase, user };
 }
 
-function getQuestionInput(formData: FormData) {
-  return {
-    content: formData.get("content"),
-    options: ["option-0", "option-1", "option-2", "option-3"].map((name) =>
-      formData.get(name),
+function getString(formData: FormData, name: string) {
+  const value = formData.get(name);
+
+  return typeof value === "string" ? value : "";
+}
+
+function getBoolean(formData: FormData, name: string) {
+  return formData.get(name) === "on";
+}
+
+function parseQuestionIndexes(formData: FormData) {
+  return Array.from(
+    new Set(
+      formData
+        .getAll("questionIndexes")
+        .filter((value): value is string => typeof value === "string"),
     ),
-    correctOptionIndex: formData.get("correctOptionIndex"),
+  );
+}
+
+function getQuestionInput(formData: FormData, index: string) {
+  const options = formData
+    .getAll(`question-${index}-options`)
+    .filter((value): value is string => typeof value === "string");
+
+  return {
+    content: formData.get(`question-${index}-content`),
+    description: formData.get(`question-${index}-description`),
+    questionType: formData.get(`question-${index}-type`),
+    options,
+    answerKey: formData.get(`question-${index}-answerKey`),
+    isRequired: getBoolean(formData, `question-${index}-required`),
+    points: formData.get(`question-${index}-points`),
+    gradingMode: formData.get(`question-${index}-gradingMode`),
+    scaleMin: formData.get(`question-${index}-scaleMin`),
+    scaleMax: formData.get(`question-${index}-scaleMax`),
+    scaleMinLabel: formData.get(`question-${index}-scaleMinLabel`),
+    scaleMaxLabel: formData.get(`question-${index}-scaleMaxLabel`),
+    ratingMax: formData.get(`question-${index}-ratingMax`),
+  };
+}
+
+function parseQuestionSetForm(formData: FormData) {
+  const setParsed = questionSetSchema.safeParse({
+    title: formData.get("title"),
+    description: formData.get("description"),
+  });
+  const fieldErrors: Record<string, string[]> = {};
+
+  if (!setParsed.success) {
+    Object.assign(fieldErrors, setParsed.error.flatten().fieldErrors);
+  }
+
+  const questionIndexes = parseQuestionIndexes(formData);
+
+  if (!questionIndexes.length) {
+    fieldErrors.questions = ["Add at least one question."];
+  }
+
+  const questions: ParsedQuestionSetQuestion[] = [];
+
+  questionIndexes.forEach((index, position) => {
+    const questionParsed = questionSetItemSchema.safeParse(
+      getQuestionInput(formData, index),
+    );
+
+    if (questionParsed.success) {
+      questions.push({
+        content: questionParsed.data.content,
+        description: questionParsed.data.description,
+        questionType: questionParsed.data.questionType,
+        options: questionParsed.data.options,
+        settings: questionParsed.data.settings,
+        answerKey: questionParsed.data.answerKey,
+        isRequired: questionParsed.data.isRequired,
+        points: questionParsed.data.points,
+        gradingMode: questionParsed.data.gradingMode,
+      });
+      return;
+    }
+
+    const flattened = questionParsed.error.flatten().fieldErrors as Record<
+      string,
+      string[] | undefined
+    >;
+    const firstMessage =
+      flattened.content?.[0] ??
+      flattened.options?.[0] ??
+      flattened.scaleMin?.[0] ??
+      "Question is invalid.";
+
+    fieldErrors.questions = [
+      ...(fieldErrors.questions ?? []),
+      `Question ${position + 1}: ${firstMessage}`,
+    ];
+  });
+
+  if (Object.keys(fieldErrors).length || !setParsed.success) {
+    return { ok: false as const, fieldErrors };
+  }
+
+  return {
+    ok: true as const,
+    input: {
+      ...setParsed.data,
+      questions,
+    },
   };
 }
 
 function validationErrorState(
-  fieldErrors: QuestionActionState["fieldErrors"],
-): QuestionActionState {
+  fieldErrors: QuestionSetActionState["fieldErrors"],
+): QuestionSetActionState {
   return {
     status: "error",
     message: "Please fix the highlighted fields.",
@@ -58,147 +206,220 @@ function validationErrorState(
   };
 }
 
-export async function createQuestion(
-  _previousState: QuestionActionState,
-  formData: FormData,
-): Promise<QuestionActionState> {
-  const parsed = questionSchema.safeParse(getQuestionInput(formData));
-
-  if (!parsed.success) {
-    return validationErrorState(parsed.error.flatten().fieldErrors);
+function schemaErrorMessage(error: DbError | null) {
+  if (error?.code === "42P01" || error?.message?.includes("question_sets")) {
+    return "Question set tables are not available yet. Apply the question-set schema, then retry.";
   }
 
-  const { supabase, user } = await requireTeacher("/questions");
-  const { content, options, correctAnswer } = parsed.data;
-  const { error } = await supabase.from("questions").insert({
-    author_id: user.id,
-    content,
-    options,
-    correct_answer: correctAnswer,
-    source: "teacher",
-  });
-
-  if (error) {
-    console.error("Create question failed", {
-      code: error.code,
-      message: error.message,
-    });
-
-    return {
-      status: "error",
-      message:
-        error.code === "42501"
-          ? "Question permissions are not ready. Please refresh and try again."
-          : "Question could not be created. Please try again.",
-    };
-  }
-
-  revalidatePath("/questions");
-
-  return {
-    status: "success",
-    message: "Question created.",
-  };
+  return null;
 }
 
-export async function updateQuestion(
-  questionId: string,
-  _previousState: QuestionActionState,
-  formData: FormData,
-): Promise<QuestionActionState> {
-  const parsed = questionSchema.safeParse(getQuestionInput(formData));
+async function replaceSetQuestions(
+  db: UntypedSupabase,
+  setId: string,
+  questions: ParsedQuestionSetQuestion[],
+) {
+  const deleteResult = await db
+    .from("question_set_questions")
+    .delete()
+    .eq("set_id", setId);
 
-  if (!parsed.success) {
-    return validationErrorState(parsed.error.flatten().fieldErrors);
+  if (deleteResult.error) {
+    return deleteResult;
   }
 
-  const { supabase, user } = await requireTeacher("/questions");
-  const { content, options, correctAnswer } = parsed.data;
-  const { error } = await supabase
-    .from("questions")
-    .update({
-      content,
-      options,
-      correct_answer: correctAnswer,
+  const rows = questions.map((question, index) => ({
+    set_id: setId,
+    content: question.content,
+    description: question.description,
+    question_type: question.questionType,
+    options: question.options,
+    settings: question.settings,
+    answer_key: question.answerKey,
+    is_required: question.isRequired,
+    points: question.points,
+    grading_mode: question.gradingMode,
+    sort_order: index,
+  }));
+
+  return db.from("question_set_questions").insert(rows);
+}
+
+export async function createQuestionSet(
+  _previousState: QuestionSetActionState,
+  formData: FormData,
+): Promise<QuestionSetActionState> {
+  const parsed = parseQuestionSetForm(formData);
+
+  if (!parsed.ok) {
+    return validationErrorState(parsed.fieldErrors);
+  }
+
+  const { db, user } = await requireTeacher("/questions");
+  const { title, description, questions } = parsed.input;
+  const { data: set, error: setError } = (await db
+    .from("question_sets")
+    .insert({
+      teacher_id: user.id,
+      title,
+      description,
     })
-    .eq("id", questionId)
-    .eq("author_id", user.id)
     .select("id")
-    .single();
+    .single()) as DbResponse<{ id: string }>;
 
-  if (error) {
-    console.error("Update question failed", {
-      code: error.code,
-      message: error.message,
+  if (setError || !set) {
+    console.error("Create question set failed", {
+      code: setError?.code,
+      message: setError?.message,
     });
 
     return {
       status: "error",
       message:
-        error.code === "42501"
-          ? "Question permissions are not ready. Please refresh and try again."
-          : "Question could not be updated. Please try again.",
+        schemaErrorMessage(setError) ??
+        "Question set could not be created. Please try again.",
+    };
+  }
+
+  const questionsResult = await replaceSetQuestions(db, set.id, questions);
+
+  if (questionsResult.error) {
+    console.error("Create question set questions failed", {
+      code: questionsResult.error.code,
+      message: questionsResult.error.message,
+    });
+
+    await db.from("question_sets").delete().eq("id", set.id);
+
+    return {
+      status: "error",
+      message: "Set questions could not be saved. Please try again.",
     };
   }
 
   revalidatePath("/questions");
+  revalidatePath("/exams");
 
   return {
     status: "success",
-    message: "Question updated.",
+    message: "Question set created.",
   };
 }
 
-export async function deleteQuestion(
-  questionId: string,
-  _previousState: QuestionActionState,
-): Promise<QuestionActionState> {
+export async function updateQuestionSet(
+  setId: string,
+  _previousState: QuestionSetActionState,
+  formData: FormData,
+): Promise<QuestionSetActionState> {
+  const parsed = parseQuestionSetForm(formData);
+
+  if (!parsed.ok) {
+    return validationErrorState(parsed.fieldErrors);
+  }
+
+  const { db, user } = await requireTeacher("/questions");
+  const { title, description, questions } = parsed.input;
+  const { data: set, error: setError } = (await db
+    .from("question_sets")
+    .update({
+      title,
+      description,
+    })
+    .eq("id", setId)
+    .eq("teacher_id", user.id)
+    .select("id")
+    .single()) as DbResponse<{ id: string }>;
+
+  if (setError || !set) {
+    console.error("Update question set failed", {
+      code: setError?.code,
+      message: setError?.message,
+    });
+
+    return {
+      status: "error",
+      message:
+        schemaErrorMessage(setError) ??
+        "Question set could not be updated. Please try again.",
+    };
+  }
+
+  const questionsResult = await replaceSetQuestions(db, setId, questions);
+
+  if (questionsResult.error) {
+    console.error("Update question set questions failed", {
+      code: questionsResult.error.code,
+      message: questionsResult.error.message,
+    });
+
+    return {
+      status: "error",
+      message: "Set questions could not be saved. Please try again.",
+    };
+  }
+
+  revalidatePath("/questions");
+  revalidatePath("/exams");
+
+  return {
+    status: "success",
+    message: "Question set saved.",
+  };
+}
+
+export async function deleteQuestionSet(
+  setId: string,
+  _previousState: QuestionSetActionState,
+): Promise<QuestionSetActionState> {
   void _previousState;
 
-  const { supabase, user } = await requireTeacher("/questions");
-  const { error } = await supabase
-    .from("questions")
+  const { db, user } = await requireTeacher("/questions");
+  const { error } = await db
+    .from("question_sets")
     .delete()
-    .eq("id", questionId)
-    .eq("author_id", user.id);
+    .eq("id", setId)
+    .eq("teacher_id", user.id);
 
   if (error) {
-    console.error("Delete question failed", {
+    console.error("Delete question set failed", {
       code: error.code,
       message: error.message,
     });
 
     return {
       status: "error",
-      message: "Question could not be deleted. Please try again.",
+      message:
+        schemaErrorMessage(error) ??
+        "Question set could not be deleted. Please try again.",
     };
   }
 
   revalidatePath("/questions");
+  revalidatePath("/exams");
 
   return {
     status: "success",
-    message: "Question deleted.",
+    message: "Question set deleted.",
   };
 }
 
-export async function copyPublicExamSetToQuestionBank(
+export async function copyPublicExamSetToQuestionSets(
   _previousState: QuestionImportActionState,
   formData: FormData,
 ): Promise<QuestionImportActionState> {
-  const setId = formData.get("setId");
+  const setId = getString(formData, "setId");
 
-  if (typeof setId !== "string" || !setId) {
+  if (!setId) {
     return {
       status: "error",
       message: "Choose a public set to copy.",
     };
   }
 
-  const { supabase, user } = await requireTeacher("/questions");
+  const { db, supabase, user } = await requireTeacher("/questions");
   const { data: setData, error: setError } = await supabase
     .from("public_exam_sets")
-    .select("*, public_exam_set_questions(*)")
+    .select("id,title,description,public_exam_set_questions(*)")
     .eq("id", setId)
     .eq("is_published", true)
     .maybeSingle();
@@ -222,21 +443,53 @@ export async function copyPublicExamSetToQuestionBank(
     };
   }
 
-  const copiedQuestions = questions.map((question) => ({
-    author_id: user.id,
+  const { data: createdSet, error: createSetError } = (await db
+    .from("question_sets")
+    .insert({
+      teacher_id: user.id,
+      title: set.title,
+      description: set.description,
+    })
+    .select("id")
+    .single()) as DbResponse<{ id: string }>;
+
+  if (createSetError || !createdSet) {
+    console.error("Import public set failed", {
+      code: createSetError?.code,
+      message: createSetError?.message,
+    });
+
+    return {
+      status: "error",
+      message:
+        schemaErrorMessage(createSetError) ??
+        "Public set could not be copied. Please try again.",
+    };
+  }
+
+  const insertRows = questions.map((question, index) => ({
+    set_id: createdSet.id,
     content: question.snapshot_content,
+    description: null,
+    question_type: "multiple_choice",
     options: question.snapshot_options,
-    correct_answer: question.snapshot_correct_answer,
-    source: "teacher",
-    original_id: question.question_id,
+    settings: {},
+    answer_key: { value: question.snapshot_correct_answer },
+    is_required: true,
+    points: 1,
+    grading_mode: "auto",
+    sort_order: index,
+    original_question_id: question.question_id,
   }));
-  const { error } = await supabase.from("questions").insert(copiedQuestions);
+  const { error } = await db.from("question_set_questions").insert(insertRows);
 
   if (error) {
-    console.error("Copy public set questions failed", {
+    console.error("Import public set questions failed", {
       code: error.code,
       message: error.message,
     });
+
+    await db.from("question_sets").delete().eq("id", createdSet.id);
 
     return {
       status: "error",
@@ -251,6 +504,6 @@ export async function copyPublicExamSetToQuestionBank(
     status: "success",
     message: `${questions.length} ${
       questions.length === 1 ? "question" : "questions"
-    } copied to your bank.`,
+    } copied into a new set.`,
   };
 }

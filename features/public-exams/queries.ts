@@ -10,12 +10,19 @@ import type {
   AdminPublicExamSet,
   PublicExamAttemptSummary,
   PublicExamQuestion,
+  QuestionSettings,
+  QuestionType,
   StudentPublicExamSet,
 } from "./types";
 
 type PublicExamSetRow = Database["public"]["Tables"]["public_exam_sets"]["Row"];
 type PublicExamSetQuestionRow =
-  Database["public"]["Tables"]["public_exam_set_questions"]["Row"];
+  Database["public"]["Tables"]["public_exam_set_questions"]["Row"] & {
+    snapshot_question_type?: string | null;
+    snapshot_description?: string | null;
+    snapshot_settings?: Json | null;
+    snapshot_is_required?: boolean | null;
+  };
 type PublicExamAttemptRow =
   Database["public"]["Tables"]["public_exam_attempts"]["Row"];
 
@@ -33,6 +40,51 @@ function optionsFromJson(options: Json): string[] {
   }
 
   return options.filter((option): option is string => typeof option === "string");
+}
+
+const questionTypes = new Set<QuestionType>([
+  "short_answer",
+  "paragraph",
+  "multiple_choice",
+  "checkboxes",
+  "dropdown",
+  "linear_scale",
+  "rating",
+]);
+
+function objectFromJson(value: Json | null | undefined): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeQuestionType(value: unknown, options: string[]): QuestionType {
+  return typeof value === "string" && questionTypes.has(value as QuestionType)
+    ? (value as QuestionType)
+    : options.length
+      ? "multiple_choice"
+      : "short_answer";
+}
+
+function normalizeSettings(value: Json | null | undefined): QuestionSettings {
+  const settings = objectFromJson(value);
+  const min = Number(settings.min);
+  const max = Number(settings.max);
+
+  return {
+    min: Number.isFinite(min) ? min : undefined,
+    max: Number.isFinite(max) ? max : undefined,
+    minLabel:
+      typeof settings.minLabel === "string"
+        ? settings.minLabel
+        : typeof settings.lowLabel === "string"
+          ? settings.lowLabel
+          : undefined,
+    maxLabel:
+      typeof settings.maxLabel === "string"
+        ? settings.maxLabel
+        : typeof settings.highLabel === "string"
+          ? settings.highLabel
+          : undefined,
+  };
 }
 
 async function requireRole(role: UserRole, callbackUrl: string) {
@@ -68,10 +120,16 @@ function adminSetFromRow(row: AdminPublicExamSetRow): AdminPublicExamSet {
 function studentQuestionFromRow(
   row: PublicExamSetQuestionRow,
 ): PublicExamQuestion {
+  const options = optionsFromJson(row.snapshot_options);
+
   return {
     id: row.id,
     content: row.snapshot_content,
-    options: optionsFromJson(row.snapshot_options),
+    description: row.snapshot_description ?? null,
+    options,
+    questionType: normalizeQuestionType(row.snapshot_question_type, options),
+    settings: normalizeSettings(row.snapshot_settings),
+    isRequired: row.snapshot_is_required ?? true,
   };
 }
 

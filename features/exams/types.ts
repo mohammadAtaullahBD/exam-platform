@@ -24,6 +24,9 @@ export type ExamQuestionOption = {
   content: string;
   options: string[];
   correctAnswer: string;
+  description: string | null;
+  questionType: QuestionType;
+  sourceLabel: string;
 };
 
 export type ExamActionState = {
@@ -58,7 +61,11 @@ export type StudentExamSummary = {
 export type StudentExamQuestion = {
   id: string;
   content: string;
+  description: string | null;
   options: string[];
+  questionType: QuestionType;
+  settings: QuestionSettings;
+  isRequired: boolean;
   sortOrder: number;
 };
 
@@ -112,4 +119,20 @@ export type SubmitExamActionState = {
 export const initialSubmitExamActionState: SubmitExamActionState = {
   status: "idle",
   message: "",
+};
+
+export type QuestionType =
+  | "short_answer"
+  | "paragraph"
+  | "multiple_choice"
+  | "checkboxes"
+  | "dropdown"
+  | "linear_scale"
+  | "rating";
+
+export type QuestionSettings = {
+  min?: number;
+  max?: number;
+  minLabel?: string;
+  maxLabel?: string;
 };

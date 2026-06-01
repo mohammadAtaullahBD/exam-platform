@@ -7,13 +7,15 @@ import { getDatabaseNowMs } from "@/lib/supabase/database-time";
 import { createClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/types/database";
 
-import type { PracticeQuestion } from "./types";
+import type { PracticeQuestion, QuestionSettings, QuestionType } from "./types";
 
 type ExamRow = Database["public"]["Tables"]["exams"]["Row"];
 type ExamQuestionRow = Database["public"]["Tables"]["exam_questions"]["Row"];
 type GroupRow = Database["public"]["Tables"]["groups"]["Row"];
 type SubmissionAnswerRow =
-  Database["public"]["Tables"]["submission_answers"]["Row"];
+  Database["public"]["Tables"]["submission_answers"]["Row"] & {
+    is_gradable?: boolean | null;
+  };
 type SubmissionRow = Database["public"]["Tables"]["submissions"]["Row"];
 
 type SubmissionWithExamRow = Pick<
@@ -39,7 +41,11 @@ type PracticeExamQuestionRow = Pick<
   | "snapshot_content"
   | "snapshot_options"
   | "snapshot_correct_answer"
->;
+> & {
+  snapshot_question_type?: string | null;
+  snapshot_description?: string | null;
+  snapshot_settings?: Json | null;
+};
 
 async function requireStudent(callbackUrl: string) {
   const supabase = await createClient();
@@ -69,6 +75,50 @@ function optionsFromJson(options: Json): string[] {
   }
 
   return options.filter((option): option is string => typeof option === "string");
+}
+
+const questionTypes = new Set<QuestionType>([
+  "short_answer",
+  "multiple_choice",
+  "checkboxes",
+  "dropdown",
+  "linear_scale",
+  "rating",
+]);
+
+function objectFromJson(value: Json | null | undefined): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeQuestionType(value: unknown, options: string[]): QuestionType {
+  return typeof value === "string" && questionTypes.has(value as QuestionType)
+    ? (value as QuestionType)
+    : options.length
+      ? "multiple_choice"
+      : "short_answer";
+}
+
+function normalizeSettings(value: Json | null | undefined): QuestionSettings {
+  const settings = objectFromJson(value);
+  const min = Number(settings.min);
+  const max = Number(settings.max);
+
+  return {
+    min: Number.isFinite(min) ? min : undefined,
+    max: Number.isFinite(max) ? max : undefined,
+    minLabel:
+      typeof settings.minLabel === "string"
+        ? settings.minLabel
+        : typeof settings.lowLabel === "string"
+          ? settings.lowLabel
+          : undefined,
+    maxLabel:
+      typeof settings.maxLabel === "string"
+        ? settings.maxLabel
+        : typeof settings.highLabel === "string"
+          ? settings.highLabel
+          : undefined,
+  };
 }
 
 export async function getPracticeQuestions(callbackUrl = "/student/practice") {
@@ -103,6 +153,7 @@ export async function getPracticeQuestions(callbackUrl = "/student/practice") {
     .select("id,submission_id,exam_question_id,answer,created_at")
     .in("submission_id", submissionIds)
     .eq("is_correct", false)
+    .eq("is_gradable", true)
     .order("created_at", { ascending: false })
     .returns<WrongAnswerRow[]>();
 
@@ -116,7 +167,7 @@ export async function getPracticeQuestions(callbackUrl = "/student/practice") {
   const { data: examQuestions } = await supabase
     .from("exam_questions")
     .select(
-      "id,exam_id,snapshot_content,snapshot_options,snapshot_correct_answer",
+      "id,exam_id,snapshot_content,snapshot_options,snapshot_correct_answer,snapshot_question_type,snapshot_description,snapshot_settings",
     )
     .in("id", examQuestionIds)
     .returns<PracticeExamQuestionRow[]>();
@@ -136,6 +187,8 @@ export async function getPracticeQuestions(callbackUrl = "/student/practice") {
       return [];
     }
 
+    const options = optionsFromJson(examQuestion.snapshot_options);
+
     return [
       {
         id: examQuestion.id,
@@ -144,7 +197,13 @@ export async function getPracticeQuestions(callbackUrl = "/student/practice") {
         examTitle: submission.exams.title,
         groupName: submission.exams.groups?.name ?? "Group",
         content: examQuestion.snapshot_content,
-        options: optionsFromJson(examQuestion.snapshot_options),
+        description: examQuestion.snapshot_description ?? null,
+        options,
+        questionType: normalizeQuestionType(
+          examQuestion.snapshot_question_type,
+          options,
+        ),
+        settings: normalizeSettings(examQuestion.snapshot_settings),
         submittedAnswer: answer.answer,
         correctAnswer: examQuestion.snapshot_correct_answer,
         submittedAt: submission.submitted_at,

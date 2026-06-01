@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { copyPublicExamSetToQuestionBank } from "@/features/questions/actions";
+import { copyPublicExamSetToQuestionSets } from "@/features/questions/actions";
 import {
   initialQuestionImportActionState,
   type PublicQuestionSetImportOption,
@@ -14,7 +14,7 @@ type PublicSetImportPanelProps = {
 
 export function PublicSetImportPanel({ sets }: PublicSetImportPanelProps) {
   const [state, formAction, isPending] = useActionState(
-    copyPublicExamSetToQuestionBank,
+    copyPublicExamSetToQuestionSets,
     initialQuestionImportActionState,
   );
   const canCopy = sets.some((set) => set.questionCount > 0);
@@ -26,8 +26,7 @@ export function PublicSetImportPanel({ sets }: PublicSetImportPanelProps) {
     >
       <h2 className="text-xl font-semibold">Import public set</h2>
       <p className="mt-2 text-sm leading-6 text-[#607066]">
-        Copy a published set into your question bank before customizing it for a
-        group exam.
+        Copy a published set into your workspace as an editable question set.
       </p>
 
       {state.message ? (
@@ -74,7 +73,7 @@ export function PublicSetImportPanel({ sets }: PublicSetImportPanelProps) {
         type="submit"
         disabled={isPending || !canCopy}
       >
-        {isPending ? "Copying..." : "Copy questions"}
+        {isPending ? "Copying..." : "Copy set"}
       </button>
     </form>
   );

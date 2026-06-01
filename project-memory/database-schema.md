@@ -7,17 +7,19 @@
 - `public.posts`: teacher public text posts. Stores `id`, `teacher_id`, `content`, and `created_at`.
 - `public.groups`: private teacher groups. Stores `id`, `teacher_id`, `name`, optional `description`, `invite_token`, and timestamps.
 - `public.group_members`: student memberships for private groups. Stores `group_id`, `student_id`, and `joined_at`.
-- `public.questions`: teacher/admin-authored question bank. Stores `id`, `author_id`, `content`, JSONB `options`, `correct_answer`, `source`, optional `original_id`, and timestamps.
+- `public.question_sets`: teacher-owned Google-Forms-like question sets. Stores `id`, `teacher_id`, `title`, optional `description`, `source`, optional `original_id`, and timestamps.
+- `public.question_set_questions`: ordered question-set items. Stores `id`, `set_id`, optional `original_question_id`, `content`, optional `description`, `question_type`, JSONB `options`, JSONB `settings`, JSONB `answer_key`, `is_required`, `points`, `grading_mode`, `sort_order`, and timestamps.
+- `public.questions`: legacy/admin-authored question compatibility table. Stores `id`, `author_id`, optional `question_set_id`, `sort_order`, `content`, optional `description`, `question_type`, JSONB `options`, JSONB `settings`, JSONB `answer_key`, `correct_answer`, `source`, optional `original_id`, scoring flags, and timestamps.
 - `public.exams`: scheduled group exams. Stores `id`, `group_id`, `title`, `starts_at`, `ends_at`, optional `closed_at`, and timestamps.
-- `public.exam_questions`: ordered exam question snapshots. Stores `id`, `exam_id`, optional `question_id`, `sort_order`, `snapshot_content`, JSONB `snapshot_options`, `snapshot_correct_answer`, and `created_at`.
-- `public.submissions`: one scored submission per student per group exam. Stores `id`, `exam_id`, `student_id`, `score`, `total_questions`, `submitted_at`, and `created_at`.
-- `public.submission_answers`: submitted answers for exam question snapshots. Stores `id`, `submission_id`, `exam_question_id`, optional `question_id`, `answer`, `is_correct`, and `created_at`.
+- `public.exam_questions`: ordered exam question snapshots. Stores `id`, `exam_id`, optional `question_id`, optional `source_question_set_id`, `sort_order`, snapshot content/type/options/settings/answer-key/points/required fields, and `created_at`.
+- `public.submissions`: one scored submission per student per group exam. Stores `id`, `exam_id`, `student_id`, legacy `score`/`total_questions`, point totals, `submitted_at`, and `created_at`.
+- `public.submission_answers`: submitted answers for exam question snapshots. Stores `id`, `submission_id`, `exam_question_id`, optional `question_id`, legacy `answer`, JSONB `response`, `is_correct`, point fields, gradability flags, and `created_at`.
 - `public.reactions`: student reactions to teacher posts. Stores `id`, `post_id`, `user_id`, `type`, and `created_at`, with one reaction per post/user/type.
 - `public.comments`: student comments on teacher posts. Stores `id`, `post_id`, `user_id`, `content`, and timestamps.
 - `public.public_exam_sets`: hidden super-user curated public exam sets. Stores `id`, `admin_id`, `title`, `description`, `is_published`, and timestamps.
-- `public.public_exam_set_questions`: ordered public set question snapshots. Stores `id`, `set_id`, optional `question_id`, `sort_order`, `snapshot_content`, JSONB `snapshot_options`, `snapshot_correct_answer`, and `created_at`.
-- `public.public_exam_attempts`: student attempts for public sets. Stores `id`, `set_id`, `student_id`, `score`, `total_questions`, `submitted_at`, and `created_at`.
-- `public.public_exam_attempt_answers`: answers for public set attempts. Stores `id`, `attempt_id`, `set_question_id`, optional `question_id`, `answer`, `is_correct`, and `created_at`.
+- `public.public_exam_set_questions`: ordered public set question snapshots. Stores `id`, `set_id`, optional `question_id`, optional `source_question_set_id`, `sort_order`, snapshot content/type/options/settings/answer-key/points/required fields, and `created_at`.
+- `public.public_exam_attempts`: student attempts for public sets. Stores `id`, `set_id`, `student_id`, legacy `score`/`total_questions`, point totals, `submitted_at`, and `created_at`.
+- `public.public_exam_attempt_answers`: answers for public set attempts. Stores `id`, `attempt_id`, `set_question_id`, optional `question_id`, legacy `answer`, JSONB `response`, `is_correct`, point fields, gradability flags, and `created_at`.
 
 ## Important Split
 
@@ -115,6 +117,14 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Adds `public.posts.posts_content_length` to enforce the app's 2000-character post limit for direct Data API writes too.
 - Leaves existing over-limit post data untouched if any exists; the constraint still protects new and updated rows.
 
+`supabase/migrations/20260531141254_google_form_question_sets.sql` implements Google-Forms-like question sets:
+
+- Adds `public.question_sets` and `public.question_set_questions` with teacher ownership, ordered items, RLS, FK indexes, and typed validation.
+- Supports `short_answer`, `paragraph`, `multiple_choice`, `checkboxes`, `dropdown`, `linear_scale`, and `rating`; file upload is intentionally absent.
+- Expands `public.questions`, `public.exam_questions`, and `public.public_exam_set_questions` with typed question metadata, settings, answer keys, points, and required flags while preserving legacy fields.
+- Expands `public.submissions`, `public.submission_answers`, `public.public_exam_attempts`, and `public.public_exam_attempt_answers` with JSON response payloads and point fields while preserving legacy score/answer fields.
+- Backfills existing standalone questions into migrated question sets so teachers keep access to existing question-bank content.
+
 ## RLS Requirements
 
 - Enable RLS on all public tables.
@@ -123,6 +133,7 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Admins can manage app users through trusted server routes.
 - Group invite token lookup and membership insertion happen in server actions; client components never call Supabase directly.
 - Question mutations happen through server actions; client components do not call Supabase directly.
+- Question-set mutations happen through server actions; client components only manage local draft interactivity.
 - Exam mutations happen through server actions; client components do not call Supabase directly.
 - Exam state checks in server code should use authenticated `public.database_now()` or database-side helpers, not the local process clock.
 - Submission and public-attempt scoring happen in server actions after authenticated role checks.

@@ -19,6 +19,13 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function scaleValues(min = 1, max = 5) {
+  const start = Math.min(min, max);
+  const end = Math.max(min, max);
+
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
 export function StudentPublicExamCard({ set }: StudentPublicExamCardProps) {
   const [state, formAction, isPending] = useActionState(
     submitPublicExamAttempt,
@@ -85,27 +92,109 @@ export function StudentPublicExamCard({ set }: StudentPublicExamCardProps) {
               <p className="mt-2 text-base font-semibold leading-7 text-[#17211b]">
                 {question.content}
               </p>
+              {question.description ? (
+                <p className="mt-2 text-sm leading-6 text-[#607066]">
+                  {question.description}
+                </p>
+              ) : null}
 
               <div className="mt-4 grid gap-3">
-                {question.options.map((option, optionIndex) => (
-                  <label
-                    className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3 rounded-md border border-[#d8dfda] bg-white p-3 text-sm text-[#26352b]"
-                    key={`${question.id}-${option}`}
+                {question.questionType === "short_answer" ? (
+                  <input
+                    className="h-12 w-full rounded-md border border-[#cfc7ba] bg-white px-4 text-base outline-none transition focus:border-[#58735f] focus:ring-4 focus:ring-[#58735f]/15"
+                    name={`answer-${question.id}`}
+                    type="text"
+                    disabled={isPending || !canSubmit}
+                    required={question.isRequired}
+                  />
+                ) : null}
+
+                {question.questionType === "paragraph" ? (
+                  <textarea
+                    className="min-h-32 w-full resize-y rounded-md border border-[#cfc7ba] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#58735f] focus:ring-4 focus:ring-[#58735f]/15"
+                    name={`answer-${question.id}`}
+                    disabled={isPending || !canSubmit}
+                    required={question.isRequired}
+                  />
+                ) : null}
+
+                {question.questionType === "dropdown" ? (
+                  <select
+                    className="h-12 w-full rounded-md border border-[#cfc7ba] bg-white px-4 text-base outline-none transition focus:border-[#58735f] focus:ring-4 focus:ring-[#58735f]/15"
+                    name={`answer-${question.id}`}
+                    disabled={isPending || !canSubmit}
+                    required={question.isRequired}
                   >
-                    <input
-                      className="mt-1 size-4 accent-[#17211b]"
-                      name={`answer-${question.id}`}
-                      type="radio"
-                      value={option}
-                      aria-label={`Question ${
-                        questionIndex + 1
-                      } option ${optionIndex + 1}`}
-                      disabled={isPending || !canSubmit}
-                      required
-                    />
-                    <span className="leading-6">{option}</span>
-                  </label>
-                ))}
+                    <option value="">Choose an answer</option>
+                    {question.options.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+
+                {question.questionType === "linear_scale" ||
+                question.questionType === "rating" ? (
+                  <div className="grid gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      {scaleValues(question.settings.min, question.settings.max).map(
+                        (value) => (
+                          <label
+                            className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#d8dfda] bg-white px-3 text-sm font-semibold text-[#26352b]"
+                            key={value}
+                          >
+                            <input
+                              className="mr-2 size-4 accent-[#17211b]"
+                              name={`answer-${question.id}`}
+                              type="radio"
+                              value={value}
+                              disabled={isPending || !canSubmit}
+                              required={question.isRequired}
+                            />
+                            {value}
+                          </label>
+                        ),
+                      )}
+                    </div>
+                    {question.settings.minLabel || question.settings.maxLabel ? (
+                      <div className="flex justify-between gap-4 text-xs text-[#607066]">
+                        <span>{question.settings.minLabel}</span>
+                        <span>{question.settings.maxLabel}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {question.questionType === "multiple_choice" ||
+                question.questionType === "checkboxes"
+                  ? question.options.map((option, optionIndex) => (
+                      <label
+                        className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3 rounded-md border border-[#d8dfda] bg-white p-3 text-sm text-[#26352b]"
+                        key={`${question.id}-${option}`}
+                      >
+                        <input
+                          className="mt-1 size-4 accent-[#17211b]"
+                          name={`answer-${question.id}`}
+                          type={
+                            question.questionType === "checkboxes"
+                              ? "checkbox"
+                              : "radio"
+                          }
+                          value={option}
+                          aria-label={`Question ${
+                            questionIndex + 1
+                          } option ${optionIndex + 1}`}
+                          disabled={isPending || !canSubmit}
+                          required={
+                            question.isRequired &&
+                            question.questionType !== "checkboxes"
+                          }
+                        />
+                        <span className="leading-6">{option}</span>
+                      </label>
+                    ))
+                  : null}
               </div>
             </fieldset>
           ))}

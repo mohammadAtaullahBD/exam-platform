@@ -13,6 +13,13 @@ type StudentExamFormProps = {
   exam: StudentExamDetail;
 };
 
+function scaleValues(min = 1, max = 5) {
+  const start = Math.min(min, max);
+  const end = Math.max(min, max);
+
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
 export function StudentExamForm({ exam }: StudentExamFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const autoSubmittedRef = useRef(false);
@@ -65,21 +72,100 @@ export function StudentExamForm({ exam }: StudentExamFormProps) {
             <p className="mt-2 text-lg font-semibold leading-7 text-[#17211b]">
               {question.content}
             </p>
+            {question.description ? (
+              <p className="mt-2 text-sm leading-6 text-[#607066]">
+                {question.description}
+              </p>
+            ) : null}
             <div className="mt-4 grid gap-3">
-              {question.options.map((option) => (
-                <label
-                  className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3 rounded-md border border-[#d8dfda] bg-[#f9fbf8] p-3 text-sm font-medium text-[#26352b] transition-colors hover:bg-[#eef5f0]"
-                  key={option}
+              {question.questionType === "short_answer" ? (
+                <input
+                  className="h-12 w-full rounded-md border border-[#cfc7ba] bg-[#f9fbf8] px-4 text-base outline-none transition focus:border-[#58735f] focus:ring-4 focus:ring-[#58735f]/15"
+                  name={`answer:${question.id}`}
+                  type="text"
+                  required={question.isRequired}
+                />
+              ) : null}
+
+              {question.questionType === "paragraph" ? (
+                <textarea
+                  className="min-h-32 w-full resize-y rounded-md border border-[#cfc7ba] bg-[#f9fbf8] px-4 py-3 text-sm outline-none transition focus:border-[#58735f] focus:ring-4 focus:ring-[#58735f]/15"
+                  name={`answer:${question.id}`}
+                  required={question.isRequired}
+                />
+              ) : null}
+
+              {question.questionType === "dropdown" ? (
+                <select
+                  className="h-12 w-full rounded-md border border-[#cfc7ba] bg-[#f9fbf8] px-4 text-base outline-none transition focus:border-[#58735f] focus:ring-4 focus:ring-[#58735f]/15"
+                  name={`answer:${question.id}`}
+                  required={question.isRequired}
                 >
-                  <input
-                    className="mt-1 size-4 accent-[#17211b]"
-                    name={`answer:${question.id}`}
-                    type="radio"
-                    value={option}
-                  />
-                  <span>{option}</span>
-                </label>
-              ))}
+                  <option value="">Choose an answer</option>
+                  {question.options.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+
+              {question.questionType === "linear_scale" ||
+              question.questionType === "rating" ? (
+                <div className="grid gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {scaleValues(question.settings.min, question.settings.max).map(
+                      (value) => (
+                        <label
+                          className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#d8dfda] bg-[#f9fbf8] px-3 text-sm font-semibold text-[#26352b]"
+                          key={value}
+                        >
+                          <input
+                            className="mr-2 size-4 accent-[#17211b]"
+                            name={`answer:${question.id}`}
+                            type="radio"
+                            value={value}
+                            required={question.isRequired}
+                          />
+                          {value}
+                        </label>
+                      ),
+                    )}
+                  </div>
+                  {question.settings.minLabel || question.settings.maxLabel ? (
+                    <div className="flex justify-between gap-4 text-xs text-[#607066]">
+                      <span>{question.settings.minLabel}</span>
+                      <span>{question.settings.maxLabel}</span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {question.questionType === "multiple_choice" ||
+              question.questionType === "checkboxes"
+                ? question.options.map((option) => (
+                    <label
+                      className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3 rounded-md border border-[#d8dfda] bg-[#f9fbf8] p-3 text-sm font-medium text-[#26352b] transition-colors hover:bg-[#eef5f0]"
+                      key={option}
+                    >
+                      <input
+                        className="mt-1 size-4 accent-[#17211b]"
+                        name={`answer:${question.id}`}
+                        type={
+                          question.questionType === "checkboxes"
+                            ? "checkbox"
+                            : "radio"
+                        }
+                        value={option}
+                        required={
+                          question.isRequired &&
+                          question.questionType !== "checkboxes"
+                        }
+                      />
+                      <span>{option}</span>
+                    </label>
+                  ))
+                : null}
             </div>
           </fieldset>
         ))}

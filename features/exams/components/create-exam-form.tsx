@@ -178,8 +178,14 @@ export function CreateExamForm({ groups, questions }: CreateExamFormProps) {
                         {question.content}
                       </span>
                       <span className="mt-1 block text-xs leading-5 text-[#607066]">
-                        {question.options.length} options, answer:{" "}
-                        {question.correctAnswer}
+                        {question.sourceLabel} ·{" "}
+                        {question.questionType.replaceAll("_", " ")}
+                        {question.options.length
+                          ? ` · ${question.options.length} options`
+                          : ""}
+                        {question.correctAnswer
+                          ? ` · answer: ${question.correctAnswer}`
+                          : ""}
                       </span>
                     </span>
                   </label>

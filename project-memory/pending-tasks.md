@@ -46,8 +46,8 @@
 - Feature slice: `features/groups/`.
 
 **4. questions (complete)**
-- Teacher question bank CRUD (text-only questions with options and correct answer).
-- Teacher dashboard lists all their questions with search and filter.
+- Teacher question-set CRUD with Google-Forms-like typed questions, options, answer keys, required flags, ordering, and point settings.
+- Teacher dashboard lists all their sets with search and source filters.
 - Routes: `app/(teacher)/questions/`.
 - Feature slice: `features/questions/`.
 
@@ -116,8 +116,8 @@
 - Feature slice: `features/public-exams/`.
 
 **15. teacher customisation (complete)**
-- Teacher copies a published public set into their own question bank and customises those questions for group exams.
-- Store `original_id` on copied questions for future analytics.
+- Teacher copies a published public set into their own editable question set and customises those questions for group exams.
+- Store `original_id` on copied set/question records for future analytics.
 
 ---
 

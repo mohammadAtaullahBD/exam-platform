@@ -13,9 +13,18 @@ import { questionSchema } from "@/lib/validations/question";
 import type { Database, Json } from "@/types/database";
 
 import type { PublicExamActionState } from "./types";
+import type { QuestionType } from "./types";
 
 type PublicExamSetQuestionRow =
-  Database["public"]["Tables"]["public_exam_set_questions"]["Row"];
+  Database["public"]["Tables"]["public_exam_set_questions"]["Row"] & {
+    snapshot_question_type?: string | null;
+    snapshot_description?: string | null;
+    snapshot_settings?: Json | null;
+    snapshot_answer_key?: Json | null;
+    snapshot_grading_mode?: string | null;
+    snapshot_points?: number | null;
+    snapshot_is_required?: boolean | null;
+  };
 
 type PublicExamSetWithQuestionsRow =
   Database["public"]["Tables"]["public_exam_sets"]["Row"] & {
@@ -24,8 +33,15 @@ type PublicExamSetWithQuestionsRow =
 
 type ParsedSetQuestion = {
   content: string;
+  description: string | null;
   options: string[];
   correctAnswer: string;
+  questionType: QuestionType;
+  settings: Json;
+  answerKey: Json;
+  gradingMode: string;
+  points: number;
+  isRequired: boolean;
 };
 
 type QuestionFormInput = {
@@ -48,6 +64,15 @@ const publicExamSetSchema = z.object({
     .transform((value) => (value ? value : null)),
   isPublished: z.boolean(),
 });
+const questionTypes = new Set<QuestionType>([
+  "short_answer",
+  "paragraph",
+  "multiple_choice",
+  "checkboxes",
+  "dropdown",
+  "linear_scale",
+  "rating",
+]);
 
 function stringFromForm(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -59,6 +84,77 @@ function optionsFromJson(options: Json): string[] {
   }
 
   return options.filter((option): option is string => typeof option === "string");
+}
+
+function objectFromJson(value: Json | null | undefined): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeQuestionType(value: unknown, options: string[]): QuestionType {
+  return typeof value === "string" && questionTypes.has(value as QuestionType)
+    ? (value as QuestionType)
+    : options.length
+      ? "multiple_choice"
+      : "short_answer";
+}
+
+function gradingModeFor(type: QuestionType, value: string | null | undefined) {
+  if (type === "paragraph") {
+    return "none";
+  }
+
+  return value === "none" ? "none" : "auto";
+}
+
+function pointsFor(value: number | null | undefined, gradingMode: string) {
+  if (gradingMode !== "auto") {
+    return 0;
+  }
+
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : 1;
+}
+
+function stringsFromAnswerKey(
+  answerKey: Json | null | undefined,
+  legacyCorrectAnswer: string,
+) {
+  const key = objectFromJson(answerKey);
+  const candidates =
+    key.acceptedAnswers ?? key.correctAnswers ?? key.answers ?? key.values;
+
+  if (Array.isArray(candidates)) {
+    return candidates.filter((value): value is string => typeof value === "string");
+  }
+
+  for (const field of ["answer", "correctAnswer", "value"]) {
+    const value = key[field];
+
+    if (typeof value === "string") {
+      return [value];
+    }
+  }
+
+  return legacyCorrectAnswer ? [legacyCorrectAnswer] : [];
+}
+
+function numberFromAnswerKey(
+  answerKey: Json | null | undefined,
+  legacyCorrectAnswer: string,
+) {
+  const key = objectFromJson(answerKey);
+
+  for (const field of ["answer", "correctAnswer", "correctValue", "value"]) {
+    const numeric = Number(key[field]);
+
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+  }
+
+  const legacy = Number(legacyCorrectAnswer);
+  return Number.isFinite(legacy) ? legacy : null;
 }
 
 async function requireRole(role: UserRole, callbackUrl: string) {
@@ -136,7 +232,19 @@ function parsePublicExamSetForm(formData: FormData) {
     );
 
     if (questionParsed.success) {
-      questions.push(questionParsed.data);
+      questions.push({
+        ...questionParsed.data,
+        description: null,
+        questionType: "multiple_choice",
+        settings: {},
+        answerKey: {
+          value: questionParsed.data.correctAnswer,
+          values: [questionParsed.data.correctAnswer],
+        },
+        gradingMode: "auto",
+        points: 1,
+        isRequired: true,
+      });
       return;
     }
 
@@ -229,8 +337,15 @@ export async function createPublicExamSet(
         content: question.content,
         options: question.options,
         correct_answer: question.correctAnswer,
+        question_type: question.questionType,
+        description: question.description,
+        settings: question.settings,
+        answer_key: question.answerKey,
+        grading_mode: question.gradingMode,
+        points: question.points,
+        is_required: question.isRequired,
         source: "admin",
-      })
+      } as never)
       .select("id")
       .single();
 
@@ -265,10 +380,17 @@ export async function createPublicExamSet(
     snapshot_content: inserted.question.content,
     snapshot_options: inserted.question.options,
     snapshot_correct_answer: inserted.question.correctAnswer,
+    snapshot_question_type: inserted.question.questionType,
+    snapshot_description: inserted.question.description,
+    snapshot_settings: inserted.question.settings,
+    snapshot_answer_key: inserted.question.answerKey,
+    snapshot_grading_mode: inserted.question.gradingMode,
+    snapshot_points: inserted.question.points,
+    snapshot_is_required: inserted.question.isRequired,
   }));
   const { error: setQuestionsError } = await supabase
     .from("public_exam_set_questions")
-    .insert(setQuestions);
+    .insert(setQuestions as never);
 
   if (setQuestionsError) {
     console.error("Attach public exam set questions failed", {
@@ -311,12 +433,100 @@ function getAttemptInput(formData: FormData) {
   return {
     setId: typeof setId === "string" ? setId : "",
     questionIds,
-    answersByQuestionId: new Map(
-      questionIds.map((questionId) => [
-        questionId,
-        stringFromForm(formData.get(`answer-${questionId}`)).trim(),
-      ]),
-    ),
+  };
+}
+
+function getSubmittedResponse(formData: FormData, question: PublicExamSetQuestionRow) {
+  const type = normalizeQuestionType(
+    question.snapshot_question_type,
+    optionsFromJson(question.snapshot_options),
+  );
+  const name = `answer-${question.id}`;
+
+  if (type === "checkboxes") {
+    return {
+      type,
+      values: formData
+        .getAll(name)
+        .filter((value): value is string => typeof value === "string"),
+    };
+  }
+
+  const value = formData.get(name);
+
+  return {
+    type,
+    value: typeof value === "string" ? value : "",
+  };
+}
+
+function legacyAnswerFromResponse(response: {
+  value?: string | number | null;
+  values?: string[];
+}) {
+  return response.values ? response.values.join(", ") : String(response.value ?? "");
+}
+
+function scoreResponse(
+  question: PublicExamSetQuestionRow,
+  response: { value?: string | number | null; values?: string[] },
+) {
+  const options = optionsFromJson(question.snapshot_options);
+  const type = normalizeQuestionType(question.snapshot_question_type, options);
+  const gradingMode = gradingModeFor(type, question.snapshot_grading_mode);
+  const maxPoints = pointsFor(question.snapshot_points, gradingMode);
+  const legacyCorrectAnswer = question.snapshot_correct_answer;
+
+  if (gradingMode !== "auto") {
+    return {
+      isGradable: false,
+      gradingStatus: "ungraded",
+      maxPoints: 0,
+      scorePoints: 0,
+      isCorrect: false,
+    };
+  }
+
+  let isCorrect = false;
+
+  if (type === "short_answer") {
+    const accepted = stringsFromAnswerKey(
+      question.snapshot_answer_key,
+      legacyCorrectAnswer,
+    ).map((value) => value.trim().toLocaleLowerCase());
+    const submitted = String(response.value ?? "").trim().toLocaleLowerCase();
+    isCorrect = Boolean(submitted) && accepted.includes(submitted);
+  } else if (type === "checkboxes") {
+    const accepted = stringsFromAnswerKey(
+      question.snapshot_answer_key,
+      legacyCorrectAnswer,
+    );
+    const submitted = response.values ?? [];
+    isCorrect =
+      submitted.length === accepted.length &&
+      submitted.every((value) => accepted.includes(value)) &&
+      accepted.every((value) => submitted.includes(value));
+  } else if (type === "linear_scale" || type === "rating") {
+    const expected = numberFromAnswerKey(
+      question.snapshot_answer_key,
+      legacyCorrectAnswer,
+    );
+    const submitted = Number(response.value);
+    isCorrect =
+      expected !== null && Number.isFinite(submitted) && submitted === expected;
+  } else {
+    const expected =
+      stringsFromAnswerKey(question.snapshot_answer_key, legacyCorrectAnswer)[0] ??
+      "";
+    isCorrect = Boolean(response.value) && response.value === expected;
+  }
+
+  return {
+    isGradable: true,
+    gradingStatus: "graded",
+    maxPoints,
+    scorePoints: isCorrect ? maxPoints : 0,
+    isCorrect,
   };
 }
 
@@ -324,7 +534,7 @@ export async function submitPublicExamAttempt(
   _previousState: PublicExamActionState,
   formData: FormData,
 ): Promise<PublicExamActionState> {
-  const { setId, answersByQuestionId } = getAttemptInput(formData);
+  const { setId } = getAttemptInput(formData);
 
   if (!setId) {
     return validationErrorState({
@@ -363,15 +573,15 @@ export async function submitPublicExamAttempt(
   }
 
   const scoredAnswers = questions.map((question) => {
-    const answer = answersByQuestionId.get(question.id) ?? "";
-    const options = optionsFromJson(question.snapshot_options);
-    const isAvailableOption = options.includes(answer);
+    const response = getSubmittedResponse(formData, question);
+    const scoring = scoreResponse(question, response);
 
     return {
       question,
-      answer,
-      isValid: Boolean(answer) && isAvailableOption,
-      isCorrect: isAvailableOption && answer === question.snapshot_correct_answer,
+      response,
+      answer: legacyAnswerFromResponse(response),
+      isValid: !question.snapshot_is_required || Boolean(legacyAnswerFromResponse(response)),
+      ...scoring,
     };
   });
 
@@ -381,8 +591,11 @@ export async function submitPublicExamAttempt(
     });
   }
 
-  const score = scoredAnswers.filter((answer) => answer.isCorrect).length;
-  const totalQuestions = scoredAnswers.length;
+  const score = scoredAnswers.reduce((sum, answer) => sum + answer.scorePoints, 0);
+  const totalQuestions = scoredAnswers.reduce(
+    (sum, answer) => sum + answer.maxPoints,
+    0,
+  );
   const admin = createAdminClient();
   const { data: attempt, error: attemptError } = await admin
     .from("public_exam_attempts")
@@ -413,10 +626,15 @@ export async function submitPublicExamAttempt(
     question_id: answer.question.question_id,
     answer: answer.answer,
     is_correct: answer.isCorrect,
+    response: answer.response,
+    score_points: answer.scorePoints,
+    max_points: answer.maxPoints,
+    is_gradable: answer.isGradable,
+    grading_status: answer.gradingStatus,
   }));
   const { error: answersError } = await admin
     .from("public_exam_attempt_answers")
-    .insert(attemptAnswers);
+    .insert(attemptAnswers as never);
 
   if (answersError) {
     console.error("Create public exam answers failed", {
