@@ -6,7 +6,7 @@ import type { User } from "@supabase/supabase-js";
 import { toUserRole } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
-import type { Profile, TeacherPost } from "./types";
+import type { Profile } from "./types";
 
 type UserRow = {
   id: string;
@@ -14,12 +14,6 @@ type UserRow = {
   name: string | null;
   bio: string | null;
   role: string | null;
-  created_at: string | null;
-};
-
-type PostRow = {
-  id: string;
-  content: string | null;
   created_at: string | null;
 };
 
@@ -44,14 +38,6 @@ function fallbackProfileFromUser(user: User): Profile {
     bio: null,
     role: toUserRole(user.app_metadata?.role),
     createdAt: user.created_at,
-  };
-}
-
-function postFromRow(row: PostRow): TeacherPost {
-  return {
-    id: row.id,
-    content: row.content ?? "",
-    createdAt: row.created_at ?? new Date(0).toISOString(),
   };
 }
 
@@ -103,34 +89,8 @@ export async function getTeacherProfilePageData(teacherId: string) {
     notFound();
   }
 
-  const { data: posts } = await supabase
-    .from("posts")
-    .select("id,content,created_at")
-    .eq("teacher_id", teacherId)
-    .order("created_at", { ascending: false })
-    .limit(20)
-    .returns<PostRow[]>();
-
   return {
     profile: profileFromRow(data),
-    posts: (posts ?? []).map(postFromRow),
     viewerId: user.id,
   };
-}
-
-export async function getTeacherPosts(teacherId: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("posts")
-    .select("id,content,created_at")
-    .eq("teacher_id", teacherId)
-    .order("created_at", { ascending: false })
-    .limit(20)
-    .returns<PostRow[]>();
-
-  if (error || !data) {
-    return [];
-  }
-
-  return data.map(postFromRow);
 }

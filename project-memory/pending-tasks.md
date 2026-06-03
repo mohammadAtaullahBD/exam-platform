@@ -39,20 +39,27 @@
 ## Phase 2 — Teacher Core
 
 **3. groups (complete)**
-- Teacher can create, rename, and delete private groups (e.g. "Class 9", "Alpha").
-- Teacher can generate an invite link per group.
-- Student follows invite link to join a group.
-- Routes: `app/(teacher)/groups/`.
+- Teacher can create, rename, and delete private batches (stored as `public.groups`, e.g. "Class 9", "Alpha").
+- Teacher can generate an invite link per batch.
+- Student follows invite link to join a batch.
+- Teacher can manage batch member roll numbers and optional custom identity labels.
+- Routes: `app/(teacher)/batches/`, `app/(teacher)/batches/new/`, and `app/(teacher)/batches/[id]/`; old `/groups` redirects to `/batches`.
 - Feature slice: `features/groups/`.
 
 **4. questions (complete)**
-- Teacher question-set CRUD with Google-Forms-like typed questions, options, answer keys, required flags, ordering, and point settings.
-- Teacher dashboard lists all their sets with search and source filters.
-- Routes: `app/(teacher)/questions/`.
+- Teacher question-set CRUD with Google-Forms-like typed questions, options, correct-answer dropdowns, default-off required toggles, shuffle-option-order settings, drag ordering, point settings, responsive create/edit and questions management views, icon actions, hidden descriptions, visual focused-field formatting controls, undo/redo, preview, and theme controls.
+- Teacher dashboard lists their own questions by default, with search plus own/public/all source filters; public questions and the teacher's own sets can be copied as teacher-owned editable questions.
+- Question create/edit warns before leaving with unsaved work.
+- Routes: `app/(teacher)/questions/`, `app/(teacher)/questions/new/`, and `app/(teacher)/questions/[id]/`.
 - Feature slice: `features/questions/`.
 
 **5. exams (complete)**
-- Teacher creates an exam for a specific group: pick questions, set `starts_at` / `ends_at`.
+- Teacher creates an exam for a specific batch: pick/search My/Public question sets, set `starts_at` / `ends_at`.
+- Selected question sets are expanded server-side into ordered `exam_questions` snapshots, so later set edits do not mutate already-created exams.
+- Teacher can edit or delete scheduled exams, including changing time, batch, and questions. Active exams can be postponed/extended while batch and questions remain locked.
+- Exam delete asks for confirmation, and the server refuses deletion after submissions exist.
+- Exam create/edit warns before leaving with unsaved work.
+- Teacher can open a recent exam card to review a dedicated statistics screen with taken/absent counts and all student results.
 - Exam state machine enforced in the database (`scheduled → active → closed`).
 - Supabase Edge Function or pg_cron job closes exams at `ends_at` and triggers merit calculation.
 - Routes: `app/(teacher)/exams/`.
@@ -71,6 +78,7 @@
 **7. merit-list (complete)**
 - Ranked leaderboard shown to all group members after exam closes.
 - Ranked by score descending; ties broken by `submitted_at` ascending.
+- Teacher can manually grade paragraph answers after close and refresh submission point totals before relying on the final ranking.
 - Routes: `app/(student)/student/exams/[id]/merit/` and `app/(teacher)/exams/[id]/merit/`.
 
 **8. progress dashboard (complete)**
@@ -88,18 +96,18 @@
 
 ## Phase 4 — Social
 
-**10. posts (complete)**
-- Teacher publishes text-only posts visible to authenticated students through the current post RLS model.
-- Routes: `app/(teacher)/posts/` (create) and `app/(student)/student/feed/` (read).
-- Feature slice: `features/posts/`.
+**10. posts (retired from active UI)**
+- The public post product surface was removed by project-owner request.
+- Removed routes: `app/(teacher)/posts/` and `app/(student)/student/feed/`.
+- Removed feature slice: `features/posts/`.
 
-**11. reactions (complete)**
-- Students react to teacher posts (like, etc.).
-- Feature slice: `features/reactions/`.
+**11. reactions (retired from active UI)**
+- Post reactions are no longer exposed in the app.
+- Removed feature slice: `features/reactions/`.
 
-**12. comments (complete)**
-- Students comment on teacher posts.
-- Feature slice: `features/comments/`.
+**12. comments (retired from active UI)**
+- Post comments are no longer exposed in the app.
+- Removed feature slice: `features/comments/`.
 
 ---
 

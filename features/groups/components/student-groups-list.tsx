@@ -16,9 +16,9 @@ export function StudentGroupsList({ groups }: StudentGroupsListProps) {
   if (!groups.length) {
     return (
       <section className="mt-8 rounded-lg border border-[#d8dfda] bg-white p-6">
-        <h2 className="text-xl font-semibold">My Groups</h2>
+        <h2 className="text-xl font-semibold">My Batches</h2>
         <p className="mt-3 text-sm leading-6 text-[#607066]">
-          You have not joined any groups yet. Use an invite link from your
+          You have not joined any batches yet. Use an invite link from your
           teacher to join one.
         </p>
       </section>
@@ -27,7 +27,7 @@ export function StudentGroupsList({ groups }: StudentGroupsListProps) {
 
   return (
     <section className="mt-8">
-      <h2 className="text-xl font-semibold">My Groups</h2>
+      <h2 className="text-xl font-semibold">My Batches</h2>
       <div className="mt-4 grid gap-4">
         {groups.map((group) => (
           <article

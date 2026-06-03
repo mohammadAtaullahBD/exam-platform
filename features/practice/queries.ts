@@ -118,6 +118,7 @@ function normalizeSettings(value: Json | null | undefined): QuestionSettings {
         : typeof settings.highLabel === "string"
           ? settings.highLabel
           : undefined,
+    shuffleOptions: settings.shuffleOptions === true,
   };
 }
 
@@ -195,7 +196,7 @@ export async function getPracticeQuestions(callbackUrl = "/student/practice") {
         submissionAnswerId: answer.id,
         examId: submission.exams.id,
         examTitle: submission.exams.title,
-        groupName: submission.exams.groups?.name ?? "Group",
+        groupName: submission.exams.groups?.name ?? "Batch",
         content: examQuestion.snapshot_content,
         description: examQuestion.snapshot_description ?? null,
         options,

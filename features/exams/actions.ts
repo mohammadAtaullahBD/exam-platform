@@ -9,12 +9,13 @@ import { toUserRole } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getDatabaseNowMs } from "@/lib/supabase/database-time";
 import { createClient } from "@/lib/supabase/server";
-import { examSchema } from "@/lib/validations/exam";
+import { examSchema, updateExamSchema } from "@/lib/validations/exam";
 import { submitExamSchema } from "@/lib/validations/student-exam";
 import type { Database, Json } from "@/types/database";
 
 import type {
   ExamActionState,
+  ManualGradeActionState,
   QuestionType,
   SubmitExamActionState,
 } from "./types";
@@ -113,6 +114,23 @@ type ResponsePayload = {
   values?: string[];
 };
 
+type QuestionSelectionSource =
+  | "own"
+  | "public"
+  | "current"
+  | "set"
+  | "public-set"
+  | "current-exam"
+  | "any";
+
+type QuestionSelection = {
+  id: string;
+  source: QuestionSelectionSource;
+};
+
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const questionTypes = new Set<QuestionType>([
   "short_answer",
   "paragraph",
@@ -181,14 +199,14 @@ function normalizeQuestionType(value: unknown, options: string[]): QuestionType 
 
 function gradingModeFor(type: QuestionType, value: string | null | undefined) {
   if (type === "paragraph") {
-    return "none";
+    return value === "manual" ? "manual" : "none";
   }
 
   return value === "none" ? "none" : "auto";
 }
 
 function pointsFor(value: number | null | undefined, gradingMode: string) {
-  if (gradingMode !== "auto") {
+  if (gradingMode === "none") {
     return 0;
   }
 
@@ -258,6 +276,44 @@ function snapshotFromPublicSetQuestion(
     snapshot_grading_mode: gradingMode,
     snapshot_points: pointsFor(question.snapshot_points, gradingMode),
     snapshot_is_required: question.snapshot_is_required ?? true,
+  };
+}
+
+function snapshotFromExistingExamQuestion(
+  examId: string,
+  question: ExamQuestionRow,
+  sortOrder: number,
+): SnapshotInput {
+  const options = optionsFromJson(question.snapshot_options);
+  const questionType = normalizeQuestionType(
+    question.snapshot_question_type,
+    options,
+  );
+  const gradingMode = gradingModeFor(
+    questionType,
+    question.snapshot_grading_mode,
+  );
+
+  return {
+    exam_id: examId,
+    question_id: question.question_id,
+    sort_order: sortOrder,
+    snapshot_content: question.snapshot_content,
+    snapshot_options: question.snapshot_options,
+    snapshot_correct_answer: question.snapshot_correct_answer,
+    snapshot_question_type: questionType,
+    snapshot_description: question.snapshot_description ?? null,
+    snapshot_settings: (question.snapshot_settings ?? {}) as Json,
+    snapshot_answer_key:
+      question.snapshot_answer_key ??
+      ({
+        value: question.snapshot_correct_answer,
+        values: [question.snapshot_correct_answer],
+      } as Json),
+    snapshot_grading_mode: gradingMode,
+    snapshot_points: pointsFor(question.snapshot_points, gradingMode),
+    snapshot_is_required: question.snapshot_is_required ?? true,
+    source_question_set_id: question.source_question_set_id,
   };
 }
 
@@ -337,11 +393,21 @@ function scoreResponse(question: SubmissionQuestionRow, response: ResponsePayloa
   const maxPoints = pointsFor(question.snapshot_points, gradingMode);
   const legacyCorrectAnswer = question.snapshot_correct_answer;
 
-  if (gradingMode !== "auto") {
+  if (gradingMode === "none") {
     return {
       isGradable: false,
       gradingStatus: "ungraded",
       maxPoints: 0,
+      scorePoints: 0,
+      isCorrect: false,
+    };
+  }
+
+  if (gradingMode === "manual") {
+    return {
+      isGradable: true,
+      gradingStatus: "ungraded",
+      maxPoints,
       scorePoints: 0,
       isCorrect: false,
     };
@@ -409,6 +475,36 @@ function getExamInput(formData: FormData) {
   };
 }
 
+function parseQuestionSelection(value: string): QuestionSelection | null {
+  const [maybeSource, maybeId] = value.split(":", 2);
+
+  if (
+    (maybeSource === "own" ||
+      maybeSource === "public" ||
+      maybeSource === "current" ||
+      maybeSource === "set" ||
+      maybeSource === "public-set" ||
+      maybeSource === "current-exam") &&
+    maybeId
+  ) {
+    return uuidPattern.test(maybeId)
+      ? { id: maybeId, source: maybeSource }
+      : null;
+  }
+
+  return uuidPattern.test(value) ? { id: value, source: "any" } : null;
+}
+
+function parseQuestionSelections(values: string[]) {
+  const selections = values.map(parseQuestionSelection);
+
+  if (selections.some((selection) => selection === null)) {
+    return null;
+  }
+
+  return selections as QuestionSelection[];
+}
+
 function validationErrorState(
   fieldErrors: ExamActionState["fieldErrors"],
 ): ExamActionState {
@@ -416,6 +512,297 @@ function validationErrorState(
     status: "error",
     message: "Please fix the highlighted fields.",
     fieldErrors,
+  };
+}
+
+async function buildExamQuestionSnapshots(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  examId: string,
+  questionIds: string[],
+): Promise<
+  | { status: "success"; snapshots: SnapshotInput[] }
+  | { status: "error"; state: ExamActionState }
+> {
+  const selections = parseQuestionSelections(questionIds);
+
+  if (!selections?.length) {
+    return {
+      status: "error",
+      state: {
+        status: "error",
+        message: "Choose question sets from your available lists.",
+        fieldErrors: {
+          questionIds: ["One or more selected question sets are unavailable."],
+        },
+      },
+    };
+  }
+
+  const db = supabase as unknown as {
+    from(table: string): {
+      select(columns?: string): {
+        in(column: string, values: string[]): {
+          eq(
+            column: string,
+            value: unknown,
+          ): PromiseLike<{
+            data: QuestionSetQuestionRow[] | null;
+            error: { code?: string; message?: string } | null;
+          }>;
+        };
+      };
+    };
+  };
+  const ownSelectionIds = selections
+    .filter((selection) => selection.source === "own" || selection.source === "any")
+    .map((selection) => selection.id);
+  const publicSelectionIds = selections
+    .filter((selection) => selection.source === "public" || selection.source === "any")
+    .map((selection) => selection.id);
+  const currentSelectionIds = selections
+    .filter((selection) => selection.source === "current")
+    .map((selection) => selection.id);
+  const ownSetSelectionIds = selections
+    .filter((selection) => selection.source === "set")
+    .map((selection) => selection.id);
+  const publicSetSelectionIds = selections
+    .filter((selection) => selection.source === "public-set")
+    .map((selection) => selection.id);
+  const currentExamSelectionIds = selections
+    .filter((selection) => selection.source === "current-exam")
+    .map((selection) => selection.id);
+  const invalidCurrentExamSelection = currentExamSelectionIds.some(
+    (selectionId) => selectionId !== examId,
+  );
+  const [
+    { data: questionRows, error: questionError },
+    { data: publicSetQuestionRows, error: publicQuestionError },
+    { data: currentQuestionRows, error: currentQuestionError },
+    { data: ownSetQuestionRows, error: ownSetQuestionError },
+    { data: publicSetQuestionRowsForSets, error: publicSetQuestionError },
+    { data: currentExamQuestionRows, error: currentExamQuestionError },
+  ] =
+    await Promise.all([
+      ownSelectionIds.length
+        ? db
+            .from("question_set_questions")
+            .select("*, question_sets!question_set_questions_set_id_fkey(teacher_id)")
+            .in("id", ownSelectionIds)
+            .eq("question_sets.teacher_id", userId)
+        : Promise.resolve({ data: [], error: null }),
+      publicSelectionIds.length
+        ? supabase
+            .from("public_exam_set_questions")
+            .select("*, public_exam_sets!public_exam_set_questions_set_id_fkey(is_published)")
+            .in("id", publicSelectionIds)
+            .eq("public_exam_sets.is_published", true)
+            .returns<
+              Array<
+                PublicSetQuestionRow & {
+                  public_exam_sets: { is_published: boolean } | null;
+                }
+              >
+            >()
+        : Promise.resolve({ data: [], error: null }),
+      currentSelectionIds.length
+        ? supabase
+            .from("exam_questions")
+            .select("*")
+            .in("id", currentSelectionIds)
+            .eq("exam_id", examId)
+            .returns<ExamQuestionRow[]>()
+        : Promise.resolve({ data: [], error: null }),
+      ownSetSelectionIds.length
+        ? db
+            .from("question_set_questions")
+            .select("*, question_sets!question_set_questions_set_id_fkey(teacher_id)")
+            .in("set_id", ownSetSelectionIds)
+            .eq("question_sets.teacher_id", userId)
+        : Promise.resolve({ data: [], error: null }),
+      publicSetSelectionIds.length
+        ? supabase
+            .from("public_exam_set_questions")
+            .select("*, public_exam_sets!public_exam_set_questions_set_id_fkey(is_published)")
+            .in("set_id", publicSetSelectionIds)
+            .eq("public_exam_sets.is_published", true)
+            .returns<
+              Array<
+                PublicSetQuestionRow & {
+                  public_exam_sets: { is_published: boolean } | null;
+                }
+              >
+            >()
+        : Promise.resolve({ data: [], error: null }),
+      currentExamSelectionIds.length && !invalidCurrentExamSelection
+        ? supabase
+            .from("exam_questions")
+            .select("*")
+            .eq("exam_id", examId)
+            .returns<ExamQuestionRow[]>()
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+  const questionsById = new Map(
+    (questionRows ?? [])
+      .filter((question) => question.question_sets?.teacher_id === userId)
+      .map((question) => [question.id, question]),
+  );
+  const publicSetQuestionsById = new Map(
+    (publicSetQuestionRows ?? [])
+      .filter((question) => question.public_exam_sets?.is_published)
+      .map((question) => [question.id, question]),
+  );
+  const currentQuestionsById = new Map(
+    (currentQuestionRows ?? []).map((question) => [question.id, question]),
+  );
+  const ownSetQuestionsBySetId = new Map<string, QuestionSetQuestionRow[]>();
+  const publicQuestionsBySetId = new Map<string, PublicSetQuestionRow[]>();
+
+  for (const question of ownSetQuestionRows ?? []) {
+    if (question.question_sets?.teacher_id !== userId) {
+      continue;
+    }
+
+    const setQuestions = ownSetQuestionsBySetId.get(question.set_id) ?? [];
+    setQuestions.push(question);
+    ownSetQuestionsBySetId.set(question.set_id, setQuestions);
+  }
+
+  for (const question of publicSetQuestionRowsForSets ?? []) {
+    if (!question.public_exam_sets?.is_published) {
+      continue;
+    }
+
+    const setQuestions = publicQuestionsBySetId.get(question.set_id) ?? [];
+    setQuestions.push(question);
+    publicQuestionsBySetId.set(question.set_id, setQuestions);
+  }
+
+  for (const questions of [
+    ...ownSetQuestionsBySetId.values(),
+    ...publicQuestionsBySetId.values(),
+  ]) {
+    questions.sort((left, right) => left.sort_order - right.sort_order);
+  }
+
+  const currentExamQuestions = [...(currentExamQuestionRows ?? [])].sort(
+    (left, right) => left.sort_order - right.sort_order,
+  );
+  const snapshots: SnapshotInput[] = [];
+  let hasMissingSelection = invalidCurrentExamSelection;
+
+  for (const selection of selections) {
+    if (selection.source === "set") {
+      const setQuestions = ownSetQuestionsBySetId.get(selection.id) ?? [];
+
+      if (!setQuestions.length) {
+        hasMissingSelection = true;
+        continue;
+      }
+
+      for (const question of setQuestions) {
+        snapshots.push(
+          snapshotFromQuestionSetQuestion(examId, question, snapshots.length),
+        );
+      }
+      continue;
+    }
+
+    if (selection.source === "public-set") {
+      const setQuestions = publicQuestionsBySetId.get(selection.id) ?? [];
+
+      if (!setQuestions.length) {
+        hasMissingSelection = true;
+        continue;
+      }
+
+      for (const question of setQuestions) {
+        snapshots.push(
+          snapshotFromPublicSetQuestion(examId, question, snapshots.length),
+        );
+      }
+      continue;
+    }
+
+    if (selection.source === "current-exam") {
+      if (selection.id !== examId || !currentExamQuestions.length) {
+        hasMissingSelection = true;
+        continue;
+      }
+
+      for (const question of currentExamQuestions) {
+        snapshots.push(
+          snapshotFromExistingExamQuestion(examId, question, snapshots.length),
+        );
+      }
+      continue;
+    }
+
+    if (selection.source === "current") {
+      const currentQuestion = currentQuestionsById.get(selection.id);
+
+      if (!currentQuestion) {
+        hasMissingSelection = true;
+        continue;
+      }
+
+      snapshots.push(
+        snapshotFromExistingExamQuestion(examId, currentQuestion, snapshots.length),
+      );
+      continue;
+    }
+
+    if (selection.source !== "public") {
+      const question = questionsById.get(selection.id);
+
+      if (question) {
+        snapshots.push(
+          snapshotFromQuestionSetQuestion(examId, question, snapshots.length),
+        );
+        continue;
+      }
+    }
+
+    if (selection.source !== "own") {
+      const publicQuestion = publicSetQuestionsById.get(selection.id);
+
+      if (publicQuestion) {
+        snapshots.push(
+          snapshotFromPublicSetQuestion(examId, publicQuestion, snapshots.length),
+        );
+        continue;
+      }
+    }
+
+    hasMissingSelection = true;
+  }
+
+  if (
+    questionError ||
+    publicQuestionError ||
+    currentQuestionError ||
+    ownSetQuestionError ||
+    publicSetQuestionError ||
+    currentExamQuestionError ||
+    hasMissingSelection ||
+    !snapshots.length
+  ) {
+    return {
+      status: "error",
+      state: {
+        status: "error",
+        message: "Choose question sets from your available lists.",
+        fieldErrors: {
+          questionIds: ["One or more selected question sets are unavailable."],
+        },
+      },
+    };
+  }
+
+  return {
+    status: "success",
+    snapshots,
   };
 }
 
@@ -430,18 +817,6 @@ export async function createExam(
   }
 
   const { supabase, user } = await requireTeacher("/exams");
-  const db = supabase as unknown as {
-    from(table: string): {
-      select(columns?: string): {
-        in(column: string, values: string[]): {
-          eq(
-            column: string,
-            value: unknown,
-          ): PromiseLike<{ data: QuestionSetQuestionRow[] | null; error: { code?: string; message?: string } | null }>;
-        };
-      };
-    };
-  };
   const { title, groupId, questionIds, startsAt, endsAt } = parsed.data;
   const { data: group, error: groupError } = await supabase
     .from("groups")
@@ -453,59 +828,12 @@ export async function createExam(
   if (groupError || !group) {
     return {
       status: "error",
-      message: "Choose one of your groups for this exam.",
+      message: "Choose one of your batches for this exam.",
       fieldErrors: {
-        groupId: ["Choose one of your groups."],
+        groupId: ["Choose one of your batches."],
       },
     };
   }
-
-  const { data: questionRows, error: questionError } = await db
-    .from("question_set_questions")
-    .select("*, question_sets!question_set_questions_set_id_fkey(teacher_id)")
-    .in("id", questionIds)
-    .eq("question_sets.teacher_id", user.id);
-
-  const { data: publicSetQuestionRows, error: publicQuestionError } = await supabase
-    .from("public_exam_set_questions")
-    .select("*, public_exam_sets!public_exam_set_questions_set_id_fkey(is_published)")
-    .in("id", questionIds)
-    .eq("public_exam_sets.is_published", true)
-    .returns<
-      Array<PublicSetQuestionRow & { public_exam_sets: { is_published: boolean } | null }>
-    >();
-
-  const availableQuestionIds = new Set([
-    ...(questionRows ?? [])
-      .filter((question) => question.question_sets?.teacher_id === user.id)
-      .map((question) => question.id),
-    ...(publicSetQuestionRows ?? [])
-      .filter((question) => question.public_exam_sets?.is_published)
-      .map((question) => question.id),
-  ]);
-
-  if (
-    questionError ||
-    publicQuestionError ||
-    !questionRows ||
-    !publicSetQuestionRows ||
-    questionIds.some((questionId) => !availableQuestionIds.has(questionId))
-  ) {
-    return {
-      status: "error",
-      message: "Choose questions from your available question lists.",
-      fieldErrors: {
-        questionIds: ["One or more selected questions are unavailable."],
-      },
-    };
-  }
-
-  const questionsById = new Map(
-    questionRows.map((question) => [question.id, question]),
-  );
-  const publicSetQuestionsById = new Map(
-    publicSetQuestionRows.map((question) => [question.id, question]),
-  );
   const { data: exam, error: examError } = await supabase
     .from("exams")
     .insert({
@@ -529,23 +857,21 @@ export async function createExam(
     };
   }
 
-  const examQuestions = questionIds.flatMap((questionId, index) => {
-    const question = questionsById.get(questionId);
+  const snapshotResult = await buildExamQuestionSnapshots(
+    supabase,
+    user.id,
+    exam.id,
+    questionIds,
+  );
 
-    if (question) {
-      return [snapshotFromQuestionSetQuestion(exam.id, question, index)];
-    }
-
-    const publicQuestion = publicSetQuestionsById.get(questionId);
-
-    return publicQuestion
-      ? [snapshotFromPublicSetQuestion(exam.id, publicQuestion, index)]
-      : [];
-  });
+  if (snapshotResult.status === "error") {
+    await supabase.from("exams").delete().eq("id", exam.id);
+    return snapshotResult.state;
+  }
 
   const { error: examQuestionsError } = await supabase
     .from("exam_questions")
-    .insert(examQuestions as never);
+    .insert(snapshotResult.snapshots as never);
 
   if (examQuestionsError) {
     console.error("Attach exam questions failed", {
@@ -570,14 +896,268 @@ export async function createExam(
   };
 }
 
+export async function updateExam(
+  examId: string,
+  _previousState: ExamActionState,
+  formData: FormData,
+): Promise<ExamActionState> {
+  const parsed = updateExamSchema.safeParse(getExamInput(formData));
+
+  if (!parsed.success) {
+    return validationErrorState(parsed.error.flatten().fieldErrors);
+  }
+
+  const { supabase, user } = await requireTeacher("/exams");
+  const { title, groupId, questionIds, startsAt, endsAt } = parsed.data;
+  const { data: exam, error: examError } = await supabase
+    .from("exams")
+    .select("id,group_id,starts_at,ends_at,groups!exams_group_id_fkey(teacher_id)")
+    .eq("id", examId)
+    .maybeSingle<{
+      id: string;
+      group_id: string;
+      starts_at: string;
+      ends_at: string;
+      groups: { teacher_id: string } | null;
+    }>();
+
+  if (examError || !exam || exam.groups?.teacher_id !== user.id) {
+    return {
+      status: "error",
+      message: "Exam could not be found.",
+    };
+  }
+
+  const databaseNowMs = await getDatabaseNowMs(supabase);
+  const currentStartMs = new Date(exam.starts_at).getTime();
+  const currentEndMs = new Date(exam.ends_at).getTime();
+  const nextStartMs = new Date(startsAt).getTime();
+  const nextEndMs = new Date(endsAt).getTime();
+  const isScheduled = databaseNowMs < currentStartMs;
+  const isActive = databaseNowMs >= currentStartMs && databaseNowMs < currentEndMs;
+
+  if (!isScheduled && !isActive) {
+    return {
+      status: "error",
+      message: "Closed exams cannot be edited.",
+    };
+  }
+
+  if (isScheduled && nextStartMs <= databaseNowMs) {
+    return validationErrorState({
+      startsAt: ["Start time must be in the future."],
+    });
+  }
+
+  if (isActive && nextEndMs <= databaseNowMs) {
+    return validationErrorState({
+      endsAt: ["End time must stay in the future when postponing an active exam."],
+    });
+  }
+
+  const { data: group, error: groupError } = await supabase
+    .from("groups")
+    .select("id")
+    .eq("id", groupId)
+    .eq("teacher_id", user.id)
+    .maybeSingle();
+
+  if (groupError || !group) {
+    return {
+      status: "error",
+      message: "Choose one of your batches for this exam.",
+      fieldErrors: {
+        groupId: ["Choose one of your batches."],
+      },
+    };
+  }
+
+  if (isActive && groupId !== exam.group_id) {
+    return {
+      status: "error",
+      message: "Active exams can only be postponed. Batch and questions stay locked.",
+      fieldErrors: {
+        groupId: ["Batch cannot be changed after the exam starts."],
+      },
+    };
+  }
+
+  if (isActive) {
+    const admin = createAdminClient();
+    const { error: activeUpdateError } = await admin
+      .from("exams")
+      .update({
+        group_id: exam.group_id,
+        title,
+        starts_at: startsAt,
+        ends_at: endsAt,
+        closed_at: null,
+      })
+      .eq("id", examId);
+
+    if (activeUpdateError) {
+      console.error("Postpone active exam failed", {
+        code: activeUpdateError.code,
+        message: activeUpdateError.message,
+      });
+
+      return {
+        status: "error",
+        message: "Exam could not be postponed. Please try again.",
+      };
+    }
+
+    revalidatePath("/exams");
+    revalidatePath(`/exams/${examId}`);
+    revalidatePath("/student/exams");
+    revalidatePath("/dashboard");
+
+    return {
+      status: "success",
+      message: "Exam postponed.",
+    };
+  }
+
+  const snapshotResult = await buildExamQuestionSnapshots(
+    supabase,
+    user.id,
+    examId,
+    questionIds,
+  );
+
+  if (snapshotResult.status === "error") {
+    return snapshotResult.state;
+  }
+
+  const { error: updateError } = await supabase
+    .from("exams")
+    .update({
+      group_id: groupId,
+      title,
+      starts_at: startsAt,
+      ends_at: endsAt,
+      closed_at: null,
+    })
+    .eq("id", examId);
+
+  if (updateError) {
+    console.error("Update exam failed", {
+      code: updateError.code,
+      message: updateError.message,
+    });
+
+    return {
+      status: "error",
+      message: "Only scheduled exams can be edited.",
+    };
+  }
+
+  const { error: deleteQuestionsError } = await supabase
+    .from("exam_questions")
+    .delete()
+    .eq("exam_id", examId);
+
+  if (deleteQuestionsError) {
+    console.error("Replace exam questions failed", {
+      code: deleteQuestionsError.code,
+      message: deleteQuestionsError.message,
+    });
+
+    return {
+      status: "error",
+      message: "Exam questions could not be replaced. Please try again.",
+    };
+  }
+
+  const { error: insertQuestionsError } = await supabase
+    .from("exam_questions")
+    .insert(snapshotResult.snapshots as never);
+
+  if (insertQuestionsError) {
+    console.error("Attach updated exam questions failed", {
+      code: insertQuestionsError.code,
+      message: insertQuestionsError.message,
+    });
+
+    return {
+      status: "error",
+      message: "Updated exam questions could not be attached. Please try again.",
+    };
+  }
+
+  revalidatePath("/exams");
+  revalidatePath(`/exams/${examId}`);
+  revalidatePath(`/exams/${examId}/merit`);
+  revalidatePath("/student/exams");
+  revalidatePath("/dashboard");
+
+  return {
+    status: "success",
+    message: "Exam updated.",
+  };
+}
+
 export async function deleteExam(
   examId: string,
   _previousState: ExamActionState,
 ): Promise<ExamActionState> {
   void _previousState;
 
-  const { supabase } = await requireTeacher("/exams");
-  const { error } = await supabase.from("exams").delete().eq("id", examId);
+  const { supabase, user } = await requireTeacher("/exams");
+  const { data: exam, error: examError } = await supabase
+    .from("exams")
+    .select("id,starts_at,ends_at,groups!exams_group_id_fkey(teacher_id)")
+    .eq("id", examId)
+    .maybeSingle<{
+      id: string;
+      starts_at: string;
+      ends_at: string;
+      groups: { teacher_id: string } | null;
+    }>();
+
+  if (examError || !exam || exam.groups?.teacher_id !== user.id) {
+    return {
+      status: "error",
+      message: "Exam could not be found.",
+    };
+  }
+
+  const databaseNowMs = await getDatabaseNowMs(supabase);
+
+  if (databaseNowMs >= new Date(exam.ends_at).getTime()) {
+    return {
+      status: "error",
+      message: "Closed exams cannot be deleted.",
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: submissions, error: submissionsError } = await admin
+    .from("submissions")
+    .select("id")
+    .eq("exam_id", examId)
+    .limit(1);
+
+  if (submissionsError) {
+    console.error("Check exam submissions before delete failed", {
+      code: submissionsError.code,
+      message: submissionsError.message,
+    });
+
+    return {
+      status: "error",
+      message: "Exam could not be checked for submissions. Please try again.",
+    };
+  }
+
+  if (submissions?.length) {
+    return {
+      status: "error",
+      message: "This exam already has submissions, so it cannot be deleted.",
+    };
+  }
+
+  const { error } = await admin.from("exams").delete().eq("id", examId);
 
   if (error) {
     console.error("Delete exam failed", {
@@ -587,11 +1167,13 @@ export async function deleteExam(
 
     return {
       status: "error",
-      message: "Only scheduled exams can be deleted.",
+      message: "Exam could not be deleted. Please try again.",
     };
   }
 
   revalidatePath("/exams");
+  revalidatePath("/student/exams");
+  revalidatePath("/dashboard");
 
   return {
     status: "success",
@@ -704,6 +1286,8 @@ export async function submitExamAnswers(
       student_id: user.id,
       score,
       total_questions: totalQuestions,
+      score_points: score,
+      total_points: totalQuestions,
     })
     .select("id")
     .single();
@@ -761,4 +1345,167 @@ export async function submitExamAnswers(
   revalidatePath("/student/progress");
   revalidatePath("/student/practice");
   redirect(`/student/exams/${examId}`);
+}
+
+function manualGradeError(message: string): ManualGradeActionState {
+  return {
+    status: "error",
+    message,
+  };
+}
+
+export async function gradeManualAnswer(
+  answerId: string,
+  _previousState: ManualGradeActionState,
+  formData: FormData,
+): Promise<ManualGradeActionState> {
+  void _previousState;
+
+  const scorePoints = Number(formData.get("scorePoints"));
+
+  if (!Number.isInteger(scorePoints) || scorePoints < 0) {
+    return manualGradeError("Enter a valid score.");
+  }
+
+  const { supabase, user } = await requireTeacher("/exams");
+  const admin = createAdminClient();
+  const { data: answer, error: answerError } = await admin
+    .from("submission_answers")
+    .select("id,submission_id,exam_question_id,max_points")
+    .eq("id", answerId)
+    .maybeSingle<{
+      id: string;
+      submission_id: string;
+      exam_question_id: string;
+      max_points: number;
+    }>();
+
+  if (answerError || !answer) {
+    return manualGradeError("Answer could not be found.");
+  }
+
+  if (scorePoints > answer.max_points) {
+    return manualGradeError(`Score cannot exceed ${answer.max_points}.`);
+  }
+
+  const { data: examQuestion, error: questionError } = await admin
+    .from("exam_questions")
+    .select("id,exam_id,snapshot_question_type,snapshot_grading_mode")
+    .eq("id", answer.exam_question_id)
+    .maybeSingle<{
+      id: string;
+      exam_id: string;
+      snapshot_question_type: string | null;
+      snapshot_grading_mode: string | null;
+    }>();
+  const { data: submission, error: submissionError } = await admin
+    .from("submissions")
+    .select("id,exam_id")
+    .eq("id", answer.submission_id)
+    .maybeSingle<{ id: string; exam_id: string }>();
+
+  if (
+    questionError ||
+    submissionError ||
+    !examQuestion ||
+    !submission ||
+    examQuestion.exam_id !== submission.exam_id ||
+    examQuestion.snapshot_question_type !== "paragraph" ||
+    examQuestion.snapshot_grading_mode !== "manual"
+  ) {
+    return manualGradeError("Only manual paragraph answers can be graded here.");
+  }
+
+  const { data: exam, error: examError } = await admin
+    .from("exams")
+    .select("id,group_id,ends_at")
+    .eq("id", submission.exam_id)
+    .maybeSingle<{ id: string; group_id: string; ends_at: string }>();
+
+  if (examError || !exam) {
+    return manualGradeError("Exam could not be found.");
+  }
+
+  const { data: group, error: groupError } = await admin
+    .from("groups")
+    .select("teacher_id")
+    .eq("id", exam.group_id)
+    .maybeSingle<{ teacher_id: string }>();
+
+  if (groupError || !group || group.teacher_id !== user.id) {
+    return manualGradeError("You can only grade answers for your exams.");
+  }
+
+  const databaseNowMs = await getDatabaseNowMs(supabase);
+
+  if (databaseNowMs < new Date(exam.ends_at).getTime()) {
+    return manualGradeError("Manual grading opens after the exam closes.");
+  }
+
+  const { error: updateAnswerError } = await admin
+    .from("submission_answers")
+    .update({
+      score_points: scorePoints,
+      is_correct: answer.max_points > 0 && scorePoints === answer.max_points,
+      grading_status: "graded",
+      is_gradable: true,
+    })
+    .eq("id", answer.id);
+
+  if (updateAnswerError) {
+    console.error("Manual grade update failed", {
+      code: updateAnswerError.code,
+      message: updateAnswerError.message,
+    });
+
+    return manualGradeError("Grade could not be saved.");
+  }
+
+  const { data: answers, error: answersError } = await admin
+    .from("submission_answers")
+    .select("score_points,max_points,is_gradable")
+    .eq("submission_id", submission.id)
+    .returns<Array<{
+      score_points: number;
+      max_points: number;
+      is_gradable: boolean;
+    }>>();
+
+  if (answersError || !answers) {
+    return manualGradeError("Grade saved, but the submission score could not be refreshed.");
+  }
+
+  const gradableAnswers = answers.filter((item) => item.is_gradable);
+  const score = gradableAnswers.reduce(
+    (sum, item) => sum + item.score_points,
+    0,
+  );
+  const total = gradableAnswers.reduce((sum, item) => sum + item.max_points, 0);
+  const { error: updateSubmissionError } = await admin
+    .from("submissions")
+    .update({
+      score,
+      total_questions: total,
+      score_points: score,
+      total_points: total,
+    })
+    .eq("id", submission.id);
+
+  if (updateSubmissionError) {
+    console.error("Manual grade score refresh failed", {
+      code: updateSubmissionError.code,
+      message: updateSubmissionError.message,
+    });
+
+    return manualGradeError("Grade saved, but the submission score could not be refreshed.");
+  }
+
+  revalidatePath(`/exams/${exam.id}/merit`);
+  revalidatePath("/student/progress");
+  revalidatePath("/student/practice");
+
+  return {
+    status: "success",
+    message: "Grade saved.",
+  };
 }

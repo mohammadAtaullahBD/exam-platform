@@ -27,7 +27,7 @@ export function JoinGroupForm({ invite }: JoinGroupFormProps) {
       <input name="token" type="hidden" value={invite.token} />
       <h2 className="text-xl font-semibold">{invite.groupName}</h2>
       <p className="mt-2 text-sm leading-6 text-[#607066]">
-        {invite.description || "This teacher has invited you to join a group."}
+        {invite.description || "This teacher has invited you to join a batch."}
       </p>
       <p className="mt-4 text-sm font-medium text-[#26352b]">
         Teacher: {invite.teacherName}
@@ -51,13 +51,13 @@ export function JoinGroupForm({ invite }: JoinGroupFormProps) {
           type="submit"
           disabled={isPending}
         >
-          {isPending ? "Joining..." : "Join group"}
+          {isPending ? "Joining..." : "Join batch"}
         </button>
         <Link
           className="flex h-12 items-center justify-center rounded-md border border-[#cfd8d2] px-5 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
           href="/student/groups"
         >
-          My groups
+          My batches
         </Link>
       </div>
     </form>

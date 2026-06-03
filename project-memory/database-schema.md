@@ -4,18 +4,18 @@
 
 - `auth.users`: managed by Supabase Auth. Stores credentials, email verification state, identities, and trusted `raw_app_meta_data`.
 - `public.users`: application profile table. Stores app-facing user fields only: `id`, `email`, `name`, `bio`, `role`, timestamps, and the legacy `password_hash` column.
-- `public.posts`: teacher public text posts. Stores `id`, `teacher_id`, `content`, and `created_at`.
+- `public.posts`: retired social table retained in the live schema. Stores `id`, `teacher_id`, `content`, and `created_at`.
 - `public.groups`: private teacher groups. Stores `id`, `teacher_id`, `name`, optional `description`, `invite_token`, and timestamps.
-- `public.group_members`: student memberships for private groups. Stores `group_id`, `student_id`, and `joined_at`.
+- `public.group_members`: student memberships for private groups/batches. Stores `group_id`, `student_id`, `joined_at`, `roll_number`, and optional `student_identity`.
 - `public.question_sets`: teacher-owned Google-Forms-like question sets. Stores `id`, `teacher_id`, `title`, optional `description`, `source`, optional `original_id`, and timestamps.
-- `public.question_set_questions`: ordered question-set items. Stores `id`, `set_id`, optional `original_question_id`, `content`, optional `description`, `question_type`, JSONB `options`, JSONB `settings`, JSONB `answer_key`, `is_required`, `points`, `grading_mode`, `sort_order`, and timestamps.
+- `public.question_set_questions`: ordered question-set items. Stores `id`, `set_id`, optional `original_question_id`, `content`, optional `description`, `question_type`, JSONB `options`, JSONB `settings`, JSONB `answer_key`, `is_required`, `points`, `grading_mode`, `sort_order`, and timestamps. `content` and `description` may contain sanitized inline rich-text HTML from the teacher builder. `grading_mode` supports `auto`, `manual`, and `none`; manual grading is limited to paragraph questions. Choice-question settings can include `shuffleOptions`.
 - `public.questions`: legacy/admin-authored question compatibility table. Stores `id`, `author_id`, optional `question_set_id`, `sort_order`, `content`, optional `description`, `question_type`, JSONB `options`, JSONB `settings`, JSONB `answer_key`, `correct_answer`, `source`, optional `original_id`, scoring flags, and timestamps.
 - `public.exams`: scheduled group exams. Stores `id`, `group_id`, `title`, `starts_at`, `ends_at`, optional `closed_at`, and timestamps.
 - `public.exam_questions`: ordered exam question snapshots. Stores `id`, `exam_id`, optional `question_id`, optional `source_question_set_id`, `sort_order`, snapshot content/type/options/settings/answer-key/points/required fields, and `created_at`.
 - `public.submissions`: one scored submission per student per group exam. Stores `id`, `exam_id`, `student_id`, legacy `score`/`total_questions`, point totals, `submitted_at`, and `created_at`.
 - `public.submission_answers`: submitted answers for exam question snapshots. Stores `id`, `submission_id`, `exam_question_id`, optional `question_id`, legacy `answer`, JSONB `response`, `is_correct`, point fields, gradability flags, and `created_at`.
-- `public.reactions`: student reactions to teacher posts. Stores `id`, `post_id`, `user_id`, `type`, and `created_at`, with one reaction per post/user/type.
-- `public.comments`: student comments on teacher posts. Stores `id`, `post_id`, `user_id`, `content`, and timestamps.
+- `public.reactions`: retired social table retained in the live schema. Stores `id`, `post_id`, `user_id`, `type`, and `created_at`, with one reaction per post/user/type.
+- `public.comments`: retired social table retained in the live schema. Stores `id`, `post_id`, `user_id`, `content`, and timestamps.
 - `public.public_exam_sets`: hidden super-user curated public exam sets. Stores `id`, `admin_id`, `title`, `description`, `is_published`, and timestamps.
 - `public.public_exam_set_questions`: ordered public set question snapshots. Stores `id`, `set_id`, optional `question_id`, optional `source_question_set_id`, `sort_order`, snapshot content/type/options/settings/answer-key/points/required fields, and `created_at`.
 - `public.public_exam_attempts`: student attempts for public sets. Stores `id`, `set_id`, `student_id`, legacy `score`/`total_questions`, point totals, `submitted_at`, and `created_at`.
@@ -63,6 +63,13 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Adds private RLS helper functions for group teacher/member checks to avoid recursive policy lookups.
 - Enables RLS and adds policies for teacher group CRUD, student membership reads, and membership management.
 
+`supabase/migrations/20260602014148_batch_member_identity.sql` adds batch member identity:
+
+- Adds `roll_number` and optional `student_identity` to `public.group_members`.
+- Backfills existing members by join order and assigns new members the next roll number automatically.
+- Adds positive-roll, identity-length, and unique `(group_id, roll_number)` constraints.
+- Grants authenticated users column-level update only for `roll_number` and `student_identity`, with an RLS policy limited to owning teachers or admins.
+
 `supabase/migrations/20260524162029_questions.sql` implements Phase 2 Questions:
 
 - Adds `public.questions` with `author_id` referencing `public.users(id)`.
@@ -82,7 +89,8 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Adds `public.exams` with group scheduling, `closed_at`, FK indexes, timestamps, and time-order constraints.
 - Adds `public.exam_questions` with ordered snapshots of selected question content/options/answers.
 - Adds private helpers for derived exam state, exam teacher/member checks, scheduled-only mutation checks, and closing due exams.
-- Enables RLS and adds policies so teachers can create exams for their own groups, teachers can mutate only scheduled exams, group members can read their exams, and admins remain super-users.
+- Enables RLS and adds policies so teachers can create exams for their own groups, teachers can mutate only scheduled exams through direct authenticated table access, group members can read their exams, and admins remain super-users.
+- App server actions additionally allow a restricted active-exam postpone/extend path after trusted teacher verification; batch and question changes remain locked after start.
 - Adds a `pg_cron` job named `close-due-exams` to run `private.close_due_exams()` every minute.
 
 `supabase/migrations/20260529091256_student_submissions.sql` implements Phase 3 submissions:
@@ -116,6 +124,7 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Adds authenticated `public.database_now()` so server-side app code can calculate exam state from database time instead of the Node.js process clock.
 - Adds `public.posts.posts_content_length` to enforce the app's 2000-character post limit for direct Data API writes too.
 - Leaves existing over-limit post data untouched if any exists; the constraint still protects new and updated rows.
+- The post/feed product UI is now retired; this migration remains part of live schema history.
 
 `supabase/migrations/20260531141254_google_form_question_sets.sql` implements Google-Forms-like question sets:
 
@@ -125,6 +134,20 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Expands `public.submissions`, `public.submission_answers`, `public.public_exam_attempts`, and `public.public_exam_attempt_answers` with JSON response payloads and point fields while preserving legacy score/answer fields.
 - Backfills existing standalone questions into migrated question sets so teachers keep access to existing question-bank content.
 
+`supabase/migrations/20260601150149_allow_manual_paragraph_grading.sql` adds manual paragraph grading:
+
+- Allows `manual` grading mode for paragraph items in question sets, legacy questions, exam snapshots, and public-set snapshots while keeping manual mode blocked for non-paragraph types.
+- Preserves the existing typed answer-key validation for auto-graded questions and keeps ungraded paragraph questions at zero points.
+
+`supabase/migrations/20260601153705_grant_question_validation_to_service_role.sql` completes service-role validation access:
+
+- Grants `service_role` usage on the private helper schema and execute permission on the typed question validation helpers so trusted maintenance/smoke flows can insert rows that pass check constraints.
+
+`supabase/migrations/20260601160118_allow_single_choice_option.sql` aligns question validation with the Google-Forms-style default:
+
+- Allows one or more options for `multiple_choice`, `checkboxes`, and `dropdown` questions while preserving uniqueness and non-blank validation.
+- Keeps the typed validation helper executable by authenticated users and service-role maintenance flows.
+
 ## RLS Requirements
 
 - Enable RLS on all public tables.
@@ -132,9 +155,12 @@ The app uses both Supabase Auth users and `public.users`, but they are not compe
 - Students and teachers should access only their own future exam data unless a later schema explicitly grants more.
 - Admins can manage app users through trusted server routes.
 - Group invite token lookup and membership insertion happen in server actions; client components never call Supabase directly.
+- Batch member roll/custom identity updates happen through server actions; client components do not call Supabase directly.
 - Question mutations happen through server actions; client components do not call Supabase directly.
 - Question-set mutations happen through server actions; client components only manage local draft interactivity.
 - Exam mutations happen through server actions; client components do not call Supabase directly.
 - Exam state checks in server code should use authenticated `public.database_now()` or database-side helpers, not the local process clock.
 - Submission and public-attempt scoring happen in server actions after authenticated role checks.
+- Manual paragraph submission answers remain ungraded until the owning teacher saves a score after exam close.
+- Choice-question option shuffling is stored as metadata and rendered by app code without changing stored answer values.
 - Direct authenticated clients receive read access only for scored submission/attempt records; service-role writes are guarded by server-side membership/role checks and database triggers.

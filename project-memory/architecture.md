@@ -50,7 +50,6 @@ src/
 │       ├── groups/
 │       ├── exams/
 │       ├── questions/
-│       ├── posts/
 │       └── public-exams/
 │
 ├── features/              # One folder per feature slice
@@ -62,9 +61,6 @@ src/
 │   │       ├── QuestionCard.tsx
 │   │       └── MeritList.tsx
 │   ├── questions/
-│   ├── posts/
-│   ├── reactions/
-│   ├── comments/
 │   ├── progress/
 │   └── practice/
 │
@@ -111,7 +107,7 @@ src/
 - `id uuid PK`, `teacher_id uuid FK → profiles`, `name text`, `description text`, `created_at timestamptz`
 
 **group_members** — students enrolled in a group
-- `group_id uuid FK → groups`, `student_id uuid FK → profiles`, `joined_at timestamptz`
+- `group_id uuid FK → groups`, `student_id uuid FK → profiles`, `joined_at timestamptz`, `roll_number int`, `student_identity text`
 
 **question_sets** — Google-Forms-like teacher question sets
 - `id uuid PK`, `teacher_id uuid FK → profiles`, `title text`, `description text`, `source text`, `original_id uuid`, `created_at timestamptz`, `updated_at timestamptz`
@@ -134,13 +130,13 @@ src/
 **submission_answers** — one row per question per submission
 - `id uuid PK`, `submission_id uuid FK → submissions`, `exam_question_id uuid FK → exam_questions`, `question_id uuid FK → questions`, `answer text`, `response jsonb`, `is_correct bool`, `score_points numeric`, `max_points numeric`, `is_gradable bool`, `grading_status text`
 
-**posts** — teacher's public text-only social posts
+**posts** — retired social table retained in the live schema
 - `id uuid PK`, `teacher_id uuid FK → profiles`, `content text`, `created_at timestamptz`
 
-**reactions** — reactions on posts
+**reactions** — retired social table retained in the live schema
 - `id uuid PK`, `post_id uuid FK → posts`, `user_id uuid FK → profiles`, `type text`
 
-**comments** — comments on posts
+**comments** — retired social table retained in the live schema
 - `id uuid PK`, `post_id uuid FK → posts`, `user_id uuid FK → profiles`, `content text`, `created_at timestamptz`
 
 **public_exam_sets** — admin-curated question sets; any student can attempt
@@ -194,10 +190,11 @@ An exam has three states: `scheduled → active → closed`.
 - Admin implementation details must never appear in public UI or marketing copy.
 
 ### Teacher
-- Creates private groups (e.g. "Class 9", "Tukhor").
+- Creates private student batches (stored in `public.groups`, e.g. "Class 9", "Tukhor").
+- Manages batch member roll numbers and optional custom student identity labels.
 - Manages personal question sets with typed questions, answer keys, and scoring metadata.
 - Builds exams from their own questions or customised admin public sets.
-- Publishes text-only public posts visible to followers; students can react and comment.
+- Uses the dashboard, batches, questions, exams, and profile surfaces for active teaching work.
 
 ### Student
 - Joins a teacher's private group via invite link.
@@ -205,4 +202,4 @@ An exam has three states: `scheduled → active → closed`.
 - Accesses a personal progress dashboard: previous exam scores and merit positions.
 - Practices questions they previously answered incorrectly (filter `submission_answers` where `is_correct = false`).
 - Can take admin public exam sets at any time; no merit list is generated for public sets.
-- Follows teachers and sees their posts in a social feed.
+- Uses batches, scheduled exams, progress, practice, and public exams for active student work.

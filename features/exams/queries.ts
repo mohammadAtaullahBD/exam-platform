@@ -13,9 +13,12 @@ import type {
   Exam,
   ExamGroupOption,
   ExamQuestionOption,
+  ExamResultSummary,
   ExamState,
   MeritEntry,
   MeritList,
+  ManualGradingAnswer,
+  ManualGradingQueue,
   QuestionSettings,
   QuestionType,
   StudentExamDetail,
@@ -31,24 +34,34 @@ type ExamQuestionRow = Database["public"]["Tables"]["exam_questions"]["Row"] & {
   snapshot_is_required?: boolean | null;
 };
 type GroupRow = Database["public"]["Tables"]["groups"]["Row"];
-type QuestionSetQuestionRow = {
+type QuestionSetBuilderQuestionRow = {
   id: string;
-  content: string;
-  description: string | null;
   question_type: string;
-  options: Json;
-  answer_key: Json;
+  points: number | null;
   sort_order: number;
-  question_sets: { title: string; teacher_id: string } | null;
 };
-type PublicSetQuestionRow =
-  Database["public"]["Tables"]["public_exam_set_questions"]["Row"] & {
-    snapshot_question_type?: string | null;
-    snapshot_description?: string | null;
-    snapshot_settings?: Json | null;
-    public_exam_sets: { title: string; is_published: boolean } | null;
-  };
+type QuestionSetBuilderRow = Pick<
+  Database["public"]["Tables"]["question_sets"]["Row"],
+  "id" | "title" | "description"
+> & {
+  question_set_questions: QuestionSetBuilderQuestionRow[] | null;
+};
+type PublicSetBuilderQuestionRow = Pick<
+  Database["public"]["Tables"]["public_exam_set_questions"]["Row"],
+  "id" | "sort_order"
+> & {
+  snapshot_question_type?: string | null;
+  snapshot_points?: number | null;
+};
+type PublicSetBuilderRow = Pick<
+  Database["public"]["Tables"]["public_exam_sets"]["Row"],
+  "id" | "title" | "description"
+> & {
+  public_exam_set_questions: PublicSetBuilderQuestionRow[] | null;
+};
 type SubmissionRow = Database["public"]["Tables"]["submissions"]["Row"];
+type SubmissionAnswerRow =
+  Database["public"]["Tables"]["submission_answers"]["Row"];
 
 type UserSummaryRow = {
   name: string | null;
@@ -57,8 +70,41 @@ type UserSummaryRow = {
 
 type ExamWithRelationsRow = ExamRow & {
   groups: Pick<GroupRow, "id" | "name"> | null;
-  exam_questions: Array<{ id: string }> | null;
+  exam_questions: Array<{
+    id: string;
+    snapshot_content: string;
+    snapshot_options: Json;
+    snapshot_correct_answer: string;
+    snapshot_description: string | null;
+    snapshot_points: number | null;
+    snapshot_question_type: string | null;
+    sort_order: number;
+    source_question_set_id: string | null;
+  }> | null;
 };
+
+type TeacherGroupMemberRow = {
+  group_id: string;
+  student_id: string;
+  joined_at: string;
+  roll_number: number | null;
+  student_identity: string | null;
+  users: UserSummaryRow | null;
+};
+
+type TeacherSubmissionSummaryRow = Pick<
+  SubmissionRow,
+  | "id"
+  | "exam_id"
+  | "student_id"
+  | "score_points"
+  | "total_points"
+  | "submitted_at"
+> & {
+  users: UserSummaryRow | null;
+};
+
+type UngradedAnswerCountRow = Pick<SubmissionAnswerRow, "submission_id">;
 
 type StudentExamGroupRow = Pick<GroupRow, "id" | "name"> & {
   users: UserSummaryRow | null;
@@ -98,7 +144,13 @@ type StudentExamDetailRow = Pick<
 
 type StudentSubmissionRow = Pick<
   SubmissionRow,
-  "id" | "exam_id" | "score" | "total_questions" | "submitted_at"
+  | "id"
+  | "exam_id"
+  | "score"
+  | "total_questions"
+  | "score_points"
+  | "total_points"
+  | "submitted_at"
 >;
 
 type MeritExamRow = Pick<
@@ -110,10 +162,46 @@ type MeritExamRow = Pick<
 
 type MeritSubmissionRow = Pick<
   SubmissionRow,
-  "id" | "student_id" | "score" | "total_questions" | "submitted_at"
+  | "id"
+  | "student_id"
+  | "score"
+  | "total_questions"
+  | "score_points"
+  | "total_points"
+  | "submitted_at"
 > & {
   users: UserSummaryRow | null;
 };
+
+type ManualGradingQuestionRow = Pick<
+  ExamQuestionRow,
+  "id" | "snapshot_content" | "sort_order"
+> &
+  Partial<
+    Pick<
+      ExamQuestionRow,
+      "snapshot_question_type" | "snapshot_grading_mode" | "snapshot_points"
+    >
+  >;
+
+type ManualGradingSubmissionRow = Pick<
+  SubmissionRow,
+  "id" | "student_id" | "submitted_at"
+> & {
+  users: UserSummaryRow | null;
+};
+
+type ManualGradingAnswerRow = Pick<
+  SubmissionAnswerRow,
+  | "id"
+  | "submission_id"
+  | "exam_question_id"
+  | "answer"
+  | "response"
+  | "score_points"
+  | "max_points"
+  | "grading_status"
+>;
 
 function optionsFromJson(options: Json): string[] {
   if (!Array.isArray(options)) {
@@ -165,23 +253,28 @@ function normalizeSettings(value: Json | null | undefined): QuestionSettings {
         : typeof settings.highLabel === "string"
           ? settings.highLabel
           : undefined,
+    shuffleOptions: settings.shuffleOptions === true,
   };
 }
 
-function displayAnswerFromKey(answerKey: Json | null | undefined, fallback = "") {
-  const key = objectFromJson(answerKey);
-  const values = key.values ?? key.answers;
-
-  if (Array.isArray(values)) {
-    return values.filter((value): value is string => typeof value === "string").join(", ");
+function displayAnswerFromResponse(response: Json | null | undefined, fallback = "") {
+  if (typeof response === "string" || typeof response === "number") {
+    return String(response);
   }
 
-  for (const field of ["value", "answer", "correctAnswer"]) {
-    const value = key[field];
+  const value = objectFromJson(response);
 
-    if (typeof value === "string" || typeof value === "number") {
-      return String(value);
-    }
+  if (typeof value.value === "string" || typeof value.value === "number") {
+    return String(value.value);
+  }
+
+  if (Array.isArray(value.values)) {
+    return value.values
+      .filter((item): item is string | number => {
+        return typeof item === "string" || typeof item === "number";
+      })
+      .map(String)
+      .join(", ");
   }
 
   return fallback;
@@ -206,11 +299,67 @@ function getExamState(
   return "closed";
 }
 
-function examFromRow(row: ExamWithRelationsRow, databaseNowMs: number): Exam {
+function studentDisplayName(member: TeacherGroupMemberRow) {
+  return (
+    member.student_identity ??
+    member.users?.name ??
+    member.users?.email ??
+    "Unnamed student"
+  );
+}
+
+function examFromRow(
+  row: ExamWithRelationsRow,
+  databaseNowMs: number,
+  members: TeacherGroupMemberRow[],
+  submissions: TeacherSubmissionSummaryRow[],
+  ungradedSubmissionIds: Set<string>,
+): Exam {
+  const submissionsByStudentId = new Map(
+    submissions.map((submission) => [submission.student_id, submission]),
+  );
+  const submittedCount = submissions.length;
+  const studentCount = members.length;
+  const maxPoints = (row.exam_questions ?? []).reduce(
+    (total, question) => total + (question.snapshot_points ?? 0),
+    0,
+  );
+  const sortedExamQuestions = [...(row.exam_questions ?? [])].sort(
+    (a, b) => a.sort_order - b.sort_order,
+  );
+  const currentQuestionTypes = Array.from(
+    new Set(
+      sortedExamQuestions.map((question) => {
+        const options = optionsFromJson(question.snapshot_options);
+
+        return normalizeQuestionType(question.snapshot_question_type, options);
+      }),
+    ),
+  );
+  const averageScore = submittedCount
+    ? submissions.reduce((total, submission) => total + submission.score_points, 0) /
+      submittedCount
+    : null;
+  const results: ExamResultSummary[] = members.map((member) => {
+    const submission = submissionsByStudentId.get(member.student_id);
+
+    return {
+      studentId: member.student_id,
+      studentName: studentDisplayName(member),
+      studentEmail: member.users?.email ?? null,
+      rollNumber: member.roll_number,
+      studentIdentity: member.student_identity,
+      score: submission?.score_points ?? null,
+      totalPoints: submission?.total_points ?? null,
+      submittedAt: submission?.submitted_at ?? null,
+      status: submission ? "submitted" : "absent",
+    };
+  });
+
   return {
     id: row.id,
     groupId: row.group_id,
-    groupName: row.groups?.name ?? "Group",
+    groupName: row.groups?.name ?? "Batch",
     title: row.title,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
@@ -219,6 +368,32 @@ function examFromRow(row: ExamWithRelationsRow, databaseNowMs: number): Exam {
     updatedAt: row.updated_at,
     state: getExamState(row.starts_at, row.ends_at, databaseNowMs),
     questionCount: row.exam_questions?.length ?? 0,
+    maxPoints,
+    submittedCount,
+    absentCount: Math.max(studentCount - submittedCount, 0),
+    studentCount,
+    averageScore,
+    ungradedCount: submissions.filter((submission) =>
+      ungradedSubmissionIds.has(submission.id),
+    ).length,
+    results,
+    selectedQuestionIds: sortedExamQuestions.length
+      ? [`current-exam:${row.id}`]
+      : [],
+    currentQuestions: sortedExamQuestions.length
+      ? [
+          {
+            id: row.id,
+            title: "Current exam questions",
+            description: "Preserve this scheduled exam's existing snapshots.",
+            questionCount: sortedExamQuestions.length,
+            questionTypes: currentQuestionTypes,
+            sourceLabel: "Current exam",
+            source: "current",
+            points: maxPoints,
+          },
+        ]
+      : [],
   };
 }
 
@@ -306,7 +481,9 @@ export async function getTeacherExams(callbackUrl = "/exams") {
   const [{ data, error }, databaseNowMs] = await Promise.all([
     supabase
       .from("exams")
-      .select("*, groups!exams_group_id_fkey(id,name), exam_questions(id)")
+      .select(
+        "*, groups!exams_group_id_fkey(id,name), exam_questions(id,snapshot_content,snapshot_options,snapshot_correct_answer,snapshot_description,snapshot_points,snapshot_question_type,sort_order,source_question_set_id)",
+      )
       .order("starts_at", { ascending: false })
       .returns<ExamWithRelationsRow[]>(),
     getDatabaseNowMs(supabase),
@@ -316,27 +493,84 @@ export async function getTeacherExams(callbackUrl = "/exams") {
     return [];
   }
 
-  return data.map((exam) => examFromRow(exam, databaseNowMs));
+  const groupIds = Array.from(new Set(data.map((exam) => exam.group_id)));
+  const examIds = data.map((exam) => exam.id);
+  const [{ data: memberRows }, { data: submissionRows }] = await Promise.all([
+    groupIds.length
+      ? supabase
+          .from("group_members")
+          .select("group_id,student_id,joined_at,roll_number,student_identity,users!group_members_student_id_fkey(name,email)")
+          .in("group_id", groupIds)
+          .order("roll_number", { ascending: true })
+          .returns<TeacherGroupMemberRow[]>()
+      : Promise.resolve({ data: [] }),
+    examIds.length
+      ? supabase
+          .from("submissions")
+          .select("id,exam_id,student_id,score_points,total_points,submitted_at,users!submissions_student_id_fkey(name,email)")
+          .in("exam_id", examIds)
+          .returns<TeacherSubmissionSummaryRow[]>()
+      : Promise.resolve({ data: [] }),
+  ]);
+  const submissionIds = (submissionRows ?? []).map((submission) => submission.id);
+  const { data: ungradedRows } = submissionIds.length
+    ? await supabase
+        .from("submission_answers")
+        .select("submission_id")
+        .in("submission_id", submissionIds)
+        .eq("grading_status", "ungraded")
+        .eq("is_gradable", true)
+        .returns<UngradedAnswerCountRow[]>()
+    : { data: [] };
+  const membersByGroupId = new Map<string, TeacherGroupMemberRow[]>();
+  const submissionsByExamId = new Map<string, TeacherSubmissionSummaryRow[]>();
+
+  for (const member of memberRows ?? []) {
+    const members = membersByGroupId.get(member.group_id) ?? [];
+    members.push(member);
+    membersByGroupId.set(member.group_id, members);
+  }
+
+  for (const submission of submissionRows ?? []) {
+    const submissions = submissionsByExamId.get(submission.exam_id) ?? [];
+    submissions.push(submission);
+    submissionsByExamId.set(submission.exam_id, submissions);
+  }
+
+  const ungradedSubmissionIds = new Set(
+    (ungradedRows ?? []).map((row) => row.submission_id),
+  );
+
+  return data.map((exam) =>
+    examFromRow(
+      exam,
+      databaseNowMs,
+      membersByGroupId.get(exam.group_id) ?? [],
+      submissionsByExamId.get(exam.id) ?? [],
+      ungradedSubmissionIds,
+    ),
+  );
+}
+
+export async function getTeacherExamStats(examId: string) {
+  await requireTeacher(`/exams/${examId}`);
+  const id = parseExamId(examId);
+  const exams = await getTeacherExams(`/exams/${id}`);
+  const exam = exams.find((item) => item.id === id);
+
+  if (!exam) {
+    notFound();
+  }
+
+  return exam;
 }
 
 export async function getExamBuilderData(callbackUrl = "/exams") {
   const { supabase, user } = await requireTeacher(callbackUrl);
-  const db = supabase as unknown as {
-    from(table: string): {
-      select(columns?: string): {
-        eq(column: string, value: unknown): {
-          order(
-            column: string,
-            options?: { ascending?: boolean },
-          ): PromiseLike<{ data: QuestionSetQuestionRow[] | null }>;
-        };
-      };
-    };
-  };
   const [
     { data: groups },
-    { data: questions },
-    { data: publicSetQuestions },
+    { data: questionSets },
+    { data: publicSets },
   ] = await Promise.all([
     supabase
       .from("groups")
@@ -344,17 +578,18 @@ export async function getExamBuilderData(callbackUrl = "/exams") {
       .eq("teacher_id", user.id)
       .order("created_at", { ascending: false })
       .returns<Array<Pick<GroupRow, "id" | "name">>>(),
-    db
-      .from("question_set_questions")
-      .select("*, question_sets!question_set_questions_set_id_fkey(title,teacher_id)")
-      .eq("question_sets.teacher_id", user.id)
-      .order("sort_order", { ascending: true }),
     supabase
-      .from("public_exam_set_questions")
-      .select("*, public_exam_sets!public_exam_set_questions_set_id_fkey(title,is_published)")
-      .eq("public_exam_sets.is_published", true)
-      .order("sort_order", { ascending: true })
-      .returns<PublicSetQuestionRow[]>(),
+      .from("question_sets")
+      .select("id,title,description,question_set_questions(id,question_type,points,sort_order)")
+      .eq("teacher_id", user.id)
+      .order("created_at", { ascending: false })
+      .returns<QuestionSetBuilderRow[]>(),
+    supabase
+      .from("public_exam_sets")
+      .select("id,title,description,public_exam_set_questions(id,snapshot_question_type,snapshot_points,sort_order)")
+      .eq("is_published", true)
+      .order("created_at", { ascending: false })
+      .returns<PublicSetBuilderRow[]>(),
   ]);
 
   const groupOptions: ExamGroupOption[] = (groups ?? []).map((group) => ({
@@ -362,38 +597,60 @@ export async function getExamBuilderData(callbackUrl = "/exams") {
     name: group.name,
   }));
 
-  const ownQuestionOptions: ExamQuestionOption[] = (questions ?? []).map(
-    (question) => ({
-      id: question.id,
-      content: question.content,
-      description: question.description ?? null,
-      options: optionsFromJson(question.options),
-      questionType: normalizeQuestionType(
-        question.question_type,
-        optionsFromJson(question.options),
-      ),
-      correctAnswer: displayAnswerFromKey(question.answer_key),
-      sourceLabel: question.question_sets?.title ?? "Question set",
-    }),
-  );
-  const publicQuestionOptions: ExamQuestionOption[] = (publicSetQuestions ?? [])
-    .filter((question) => question.public_exam_sets?.is_published)
-    .map((question) => {
-      const options = optionsFromJson(question.snapshot_options);
+  const ownQuestionOptions: ExamQuestionOption[] = (questionSets ?? []).map(
+    (questionSet) => {
+      const questions = [...(questionSet.question_set_questions ?? [])].sort(
+        (left, right) => left.sort_order - right.sort_order,
+      );
 
       return {
-        id: question.id,
-        content: question.snapshot_content,
-        description: question.snapshot_description ?? null,
-        options,
-        questionType: normalizeQuestionType(
-          question.snapshot_question_type,
-          options,
+        id: questionSet.id,
+        title: questionSet.title,
+        description: questionSet.description ?? null,
+        questionCount: questions.length,
+        questionTypes: Array.from(
+          new Set(
+            questions.map((question) =>
+              normalizeQuestionType(question.question_type, []),
+            ),
+          ),
         ),
-        correctAnswer: question.snapshot_correct_answer,
-        sourceLabel: question.public_exam_sets?.title ?? "Public set",
+        sourceLabel: "My Questions",
+        source: "own",
+        points: questions.reduce(
+          (total, question) => total + (question.points ?? 0),
+          0,
+        ),
       };
-    });
+    },
+  );
+  const publicQuestionOptions: ExamQuestionOption[] = (publicSets ?? []).map(
+    (questionSet) => {
+      const questions = [...(questionSet.public_exam_set_questions ?? [])].sort(
+        (left, right) => left.sort_order - right.sort_order,
+      );
+
+      return {
+        id: questionSet.id,
+        title: questionSet.title,
+        description: questionSet.description ?? null,
+        questionCount: questions.length,
+        questionTypes: Array.from(
+          new Set(
+            questions.map((question) =>
+              normalizeQuestionType(question.snapshot_question_type, []),
+            ),
+          ),
+        ),
+        sourceLabel: "Public Questions",
+        source: "public",
+        points: questions.reduce(
+          (total, question) => total + (question.snapshot_points ?? 0),
+          0,
+        ),
+      };
+    },
+  );
 
   return {
     groups: groupOptions,
@@ -444,7 +701,7 @@ export async function getStudentExams(callbackUrl = "/student/exams") {
     return {
       id: exam.id,
       title: exam.title,
-      groupName: exam.groups?.name ?? "Group",
+      groupName: exam.groups?.name ?? "Batch",
       teacherName: teacherNameFromGroup(exam.groups),
       startsAt: exam.starts_at,
       endsAt: exam.ends_at,
@@ -483,7 +740,7 @@ export async function getStudentExamDetail(examId: string) {
 
   const { data: submission } = await supabase
     .from("submissions")
-    .select("id,exam_id,score,total_questions,submitted_at")
+    .select("id,exam_id,score,total_questions,score_points,total_points,submitted_at")
     .eq("exam_id", id)
     .eq("student_id", user.id)
     .maybeSingle<StudentSubmissionRow>();
@@ -497,7 +754,7 @@ export async function getStudentExamDetail(examId: string) {
   return {
     id: data.id,
     title: data.title,
-    groupName: data.groups?.name ?? "Group",
+    groupName: data.groups?.name ?? "Batch",
     teacherName: teacherNameFromGroup(data.groups),
     startsAt: data.starts_at,
     endsAt: data.ends_at,
@@ -510,8 +767,8 @@ export async function getStudentExamDetail(examId: string) {
     submission: submission
       ? {
           id: submission.id,
-          score: submission.score,
-          totalQuestions: submission.total_questions,
+          score: submission.score_points,
+          totalQuestions: submission.total_points,
           submittedAt: submission.submitted_at,
         }
       : null,
@@ -526,9 +783,9 @@ async function getMeritEntries(exam: MeritExamRow, state: ExamState) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("submissions")
-    .select("id,student_id,score,total_questions,submitted_at,users!submissions_student_id_fkey(name,email)")
+    .select("id,student_id,score,total_questions,score_points,total_points,submitted_at,users!submissions_student_id_fkey(name,email)")
     .eq("exam_id", exam.id)
-    .order("score", { ascending: false })
+    .order("score_points", { ascending: false })
     .order("submitted_at", { ascending: true })
     .returns<MeritSubmissionRow[]>();
 
@@ -542,8 +799,8 @@ async function getMeritEntries(exam: MeritExamRow, state: ExamState) {
     studentId: submission.student_id,
     studentName:
       submission.users?.name ?? submission.users?.email ?? "Unnamed student",
-    score: submission.score,
-    totalQuestions: submission.total_questions,
+    score: submission.score_points,
+    totalQuestions: submission.total_points,
     submittedAt: submission.submitted_at,
   }));
 }
@@ -557,7 +814,7 @@ function meritListFromExam(
     exam: {
       id: exam.id,
       title: exam.title,
-      groupName: exam.groups?.name ?? "Group",
+      groupName: exam.groups?.name ?? "Batch",
       startsAt: exam.starts_at,
       endsAt: exam.ends_at,
       state,
@@ -617,4 +874,120 @@ export async function getTeacherExamMeritList(examId: string) {
   const entries = await getMeritEntries(data, state);
 
   return meritListFromExam(data, entries, state);
+}
+
+export async function getTeacherExamManualGrading(
+  examId: string,
+): Promise<ManualGradingQueue> {
+  const id = parseExamId(examId);
+  const { supabase, user } = await requireTeacher(`/exams/${id}/merit`);
+  const { data, error } = await supabase
+    .from("exams")
+    .select("id,title,group_id,starts_at,ends_at,groups!exams_group_id_fkey(id,name,teacher_id)")
+    .eq("id", id)
+    .maybeSingle<MeritExamRow>();
+
+  if (error || !data || data.groups?.teacher_id !== user.id) {
+    notFound();
+  }
+
+  const databaseNowMs = await getDatabaseNowMs(supabase);
+  const state = getExamState(data.starts_at, data.ends_at, databaseNowMs);
+  const exam = meritListFromExam(data, [], state).exam;
+
+  if (state !== "closed") {
+    return {
+      exam,
+      answers: [],
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: questions } = await admin
+    .from("exam_questions")
+    .select("id,snapshot_content,snapshot_question_type,snapshot_grading_mode,snapshot_points,sort_order")
+    .eq("exam_id", id)
+    .eq("snapshot_question_type", "paragraph")
+    .eq("snapshot_grading_mode", "manual")
+    .order("sort_order", { ascending: true })
+    .returns<ManualGradingQuestionRow[]>();
+
+  if (!questions?.length) {
+    return {
+      exam,
+      answers: [],
+    };
+  }
+
+  const { data: submissions } = await admin
+    .from("submissions")
+    .select("id,student_id,submitted_at,users!submissions_student_id_fkey(name,email)")
+    .eq("exam_id", id)
+    .order("submitted_at", { ascending: true })
+    .returns<ManualGradingSubmissionRow[]>();
+
+  if (!submissions?.length) {
+    return {
+      exam,
+      answers: [],
+    };
+  }
+
+  const questionIds = questions.map((question) => question.id);
+  const submissionIds = submissions.map((submission) => submission.id);
+  const { data: answers } = await admin
+    .from("submission_answers")
+    .select("id,submission_id,exam_question_id,answer,response,score_points,max_points,grading_status")
+    .in("submission_id", submissionIds)
+    .in("exam_question_id", questionIds)
+    .returns<ManualGradingAnswerRow[]>();
+
+  const questionsById = new Map(
+    questions.map((question) => [question.id, question]),
+  );
+  const submissionsById = new Map(
+    submissions.map((submission) => [submission.id, submission]),
+  );
+  const manualAnswers = (answers ?? [])
+    .flatMap<ManualGradingAnswer>((answer) => {
+      const question = questionsById.get(answer.exam_question_id);
+      const submission = submissionsById.get(answer.submission_id);
+
+      if (!question || !submission) {
+        return [];
+      }
+
+      return [
+        {
+          id: answer.id,
+          submissionId: answer.submission_id,
+          studentName:
+            submission.users?.name ??
+            submission.users?.email ??
+            "Unnamed student",
+          submittedAt: submission.submitted_at,
+          question: question.snapshot_content,
+          answer: displayAnswerFromResponse(answer.response, answer.answer),
+          scorePoints: answer.score_points,
+          maxPoints: answer.max_points,
+          gradingStatus:
+            answer.grading_status === "graded" ? "graded" : "ungraded",
+        },
+      ];
+    })
+    .sort((left, right) => {
+      const submittedAtOrder =
+        new Date(left.submittedAt).getTime() - new Date(right.submittedAt).getTime();
+
+      if (submittedAtOrder !== 0) {
+        return submittedAtOrder;
+      }
+
+      return left.question.localeCompare(right.question);
+    });
+
+  return {
+    exam,
+    answers: manualAnswers,
+  };
 }

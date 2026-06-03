@@ -10,6 +10,7 @@ import type { Json } from "@/types/database";
 import type {
   GradingMode,
   PublicQuestionSetImportOption,
+  QuestionSourceFilter,
   QuestionSet,
   QuestionSetFilters,
   QuestionSetListResult,
@@ -96,7 +97,7 @@ function questionTypeFromValue(value: string): QuestionType {
 }
 
 function gradingModeFromValue(value: string): GradingMode {
-  if (value === "auto" || value === "none") {
+  if (value === "auto" || value === "manual" || value === "none") {
     return value;
   }
 
@@ -154,15 +155,24 @@ async function requireTeacher(callbackUrl: string) {
   return { db: supabase as unknown as UntypedSupabase, supabase, user };
 }
 
+export async function requireTeacherQuestionAccess(callbackUrl = "/questions") {
+  await requireTeacher(callbackUrl);
+}
+
 export function parseQuestionFilters(searchParams: {
   q?: string | string[];
+  source?: string | string[];
 }): QuestionSetFilters {
   const parsed = questionFiltersSchema.parse({
     q: Array.isArray(searchParams.q) ? searchParams.q[0] : searchParams.q,
+    source: Array.isArray(searchParams.source)
+      ? searchParams.source[0]
+      : searchParams.source,
   });
 
   return {
     query: parsed.q ?? "",
+    source: (parsed.source ?? "own") as QuestionSourceFilter,
   };
 }
 

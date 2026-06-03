@@ -84,6 +84,7 @@ function normalizeSettings(value: Json | null | undefined): QuestionSettings {
         : typeof settings.highLabel === "string"
           ? settings.highLabel
           : undefined,
+    shuffleOptions: settings.shuffleOptions === true,
   };
 }
 

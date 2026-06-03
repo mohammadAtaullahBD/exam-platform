@@ -16,9 +16,9 @@ export function CreateGroupForm() {
       action={formAction}
       className="rounded-lg border border-[#d8dfda] bg-white p-6"
     >
-      <h2 className="text-xl font-semibold">Create group</h2>
+      <h2 className="text-xl font-semibold">Create batch</h2>
       <p className="mt-2 text-sm leading-6 text-[#607066]">
-        Set up a private class group and share its invite link with students.
+        Set up a private student batch and share its invite link.
       </p>
 
       {state.message ? (
@@ -40,7 +40,7 @@ export function CreateGroupForm() {
             className="mt-2 h-12 w-full rounded-md border border-[#cfc7ba] bg-white px-4 text-base outline-none transition focus:border-[#58735f] focus:ring-4 focus:ring-[#58735f]/15"
             name="name"
             type="text"
-            placeholder="Class 9"
+            placeholder="HSC Batch 2026"
             disabled={isPending}
             required
           />
@@ -74,7 +74,7 @@ export function CreateGroupForm() {
         type="submit"
         disabled={isPending}
       >
-        {isPending ? "Creating..." : "Create group"}
+        {isPending ? "Creating..." : "Create batch"}
       </button>
     </form>
   );

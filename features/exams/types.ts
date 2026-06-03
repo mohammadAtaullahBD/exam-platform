@@ -12,6 +12,27 @@ export type Exam = {
   updatedAt: string;
   state: ExamState;
   questionCount: number;
+  maxPoints: number;
+  submittedCount: number;
+  absentCount: number;
+  studentCount: number;
+  averageScore: number | null;
+  ungradedCount: number;
+  results: ExamResultSummary[];
+  selectedQuestionIds: string[];
+  currentQuestions: ExamQuestionOption[];
+};
+
+export type ExamResultSummary = {
+  studentId: string;
+  studentName: string;
+  studentEmail: string | null;
+  rollNumber: number | null;
+  studentIdentity: string | null;
+  score: number | null;
+  totalPoints: number | null;
+  submittedAt: string | null;
+  status: "submitted" | "absent";
 };
 
 export type ExamGroupOption = {
@@ -21,12 +42,13 @@ export type ExamGroupOption = {
 
 export type ExamQuestionOption = {
   id: string;
-  content: string;
-  options: string[];
-  correctAnswer: string;
+  title: string;
   description: string | null;
-  questionType: QuestionType;
+  questionCount: number;
+  questionTypes: QuestionType[];
   sourceLabel: string;
+  source: "own" | "public" | "current";
+  points: number;
 };
 
 export type ExamActionState = {
@@ -111,6 +133,33 @@ export type MeritList = {
   entries: MeritEntry[];
 };
 
+export type ManualGradingAnswer = {
+  id: string;
+  submissionId: string;
+  studentName: string;
+  submittedAt: string;
+  question: string;
+  answer: string;
+  scorePoints: number;
+  maxPoints: number;
+  gradingStatus: "graded" | "ungraded";
+};
+
+export type ManualGradingQueue = {
+  exam: MeritList["exam"];
+  answers: ManualGradingAnswer[];
+};
+
+export type ManualGradeActionState = {
+  status: "idle" | "success" | "error";
+  message: string;
+};
+
+export const initialManualGradeActionState: ManualGradeActionState = {
+  status: "idle",
+  message: "",
+};
+
 export type SubmitExamActionState = {
   status: "idle" | "success" | "error";
   message: string;
@@ -135,4 +184,5 @@ export type QuestionSettings = {
   max?: number;
   minLabel?: string;
   maxLabel?: string;
+  shuffleOptions?: boolean;
 };

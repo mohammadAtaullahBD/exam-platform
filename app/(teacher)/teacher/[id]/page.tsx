@@ -11,12 +11,11 @@ export default async function TeacherPublicProfilePage({
   params,
 }: TeacherPublicProfilePageProps) {
   const { id } = await params;
-  const { profile, posts, viewerId } = await getTeacherProfilePageData(id);
+  const { profile, viewerId } = await getTeacherProfilePageData(id);
 
   return (
     <TeacherProfile
       profile={profile}
-      posts={posts}
       isOwnProfile={viewerId === profile.id}
     />
   );

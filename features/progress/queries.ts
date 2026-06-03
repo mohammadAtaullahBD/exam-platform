@@ -158,7 +158,7 @@ export async function getStudentProgress(
       {
         examId: exam.id,
         title: exam.title,
-        groupName: exam.groups?.name ?? "Group",
+        groupName: exam.groups?.name ?? "Batch",
         startsAt: exam.starts_at,
         endsAt: exam.ends_at,
         submittedAt: submission.submitted_at,

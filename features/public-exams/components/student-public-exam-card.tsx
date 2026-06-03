@@ -7,6 +7,7 @@ import {
   initialPublicExamActionState,
   type StudentPublicExamSet,
 } from "@/features/public-exams/types";
+import { RichTextDisplay } from "@/features/questions/components/rich-text-display";
 
 type StudentPublicExamCardProps = {
   set: StudentPublicExamSet;
@@ -24,6 +25,27 @@ function scaleValues(min = 1, max = 5) {
   const end = Math.max(min, max);
 
   return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
+function stableHash(value: string) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash;
+}
+
+function displayOptions(question: StudentPublicExamSet["questions"][number]) {
+  if (!question.settings.shuffleOptions) {
+    return question.options;
+  }
+
+  return [...question.options].sort(
+    (left, right) =>
+      stableHash(`${question.id}:${left}`) - stableHash(`${question.id}:${right}`),
+  );
 }
 
 export function StudentPublicExamCard({ set }: StudentPublicExamCardProps) {
@@ -89,13 +111,15 @@ export function StudentPublicExamCard({ set }: StudentPublicExamCardProps) {
               <legend className="text-sm font-semibold text-[#26352b]">
                 Question {questionIndex + 1}
               </legend>
-              <p className="mt-2 text-base font-semibold leading-7 text-[#17211b]">
-                {question.content}
-              </p>
+              <RichTextDisplay
+                className="mt-2 block text-base font-semibold leading-7 text-[#17211b]"
+                value={question.content}
+              />
               {question.description ? (
-                <p className="mt-2 text-sm leading-6 text-[#607066]">
-                  {question.description}
-                </p>
+                <RichTextDisplay
+                  className="mt-2 block text-sm leading-6 text-[#607066]"
+                  value={question.description}
+                />
               ) : null}
 
               <div className="mt-4 grid gap-3">
@@ -126,7 +150,7 @@ export function StudentPublicExamCard({ set }: StudentPublicExamCardProps) {
                     required={question.isRequired}
                   >
                     <option value="">Choose an answer</option>
-                    {question.options.map((option) => (
+                    {displayOptions(question).map((option) => (
                       <option key={option} value={option}>
                         {option}
                       </option>
@@ -168,7 +192,7 @@ export function StudentPublicExamCard({ set }: StudentPublicExamCardProps) {
 
                 {question.questionType === "multiple_choice" ||
                 question.questionType === "checkboxes"
-                  ? question.options.map((option, optionIndex) => (
+                  ? displayOptions(question).map((option, optionIndex) => (
                       <label
                         className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3 rounded-md border border-[#d8dfda] bg-white p-3 text-sm text-[#26352b]"
                         key={`${question.id}-${option}`}

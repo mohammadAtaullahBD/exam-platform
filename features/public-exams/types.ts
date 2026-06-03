@@ -61,4 +61,5 @@ export type QuestionSettings = {
   max?: number;
   minLabel?: string;
   maxLabel?: string;
+  shuffleOptions?: boolean;
 };

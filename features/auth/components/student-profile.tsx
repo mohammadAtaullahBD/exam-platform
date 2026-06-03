@@ -65,9 +65,9 @@ export function StudentProfile({ profile }: StudentProfileProps) {
 
         <section className="mt-6 grid gap-4 md:grid-cols-2">
           <div className="rounded-lg border border-[#d8dfda] bg-white p-6">
-            <h2 className="text-xl font-semibold">My Groups</h2>
+            <h2 className="text-xl font-semibold">My Batches</h2>
             <p className="mt-3 text-sm leading-6 text-[#607066]">
-              Group memberships will appear here in the groups phase.
+              Batch memberships will appear here.
             </p>
           </div>
           <div className="rounded-lg border border-[#d8dfda] bg-white p-6">

@@ -1,8 +1,6 @@
 import Link from "next/link";
 
-import { PublicSetImportPanel } from "@/features/questions/components/public-set-import-panel";
 import { QuestionFilters } from "@/features/questions/components/question-filters";
-import { QuestionSetBuilder } from "@/features/questions/components/question-set-builder";
 import { QuestionSetList } from "@/features/questions/components/question-set-list";
 import {
   getPublicQuestionSetImportOptions,
@@ -13,6 +11,7 @@ import {
 type TeacherQuestionsPageProps = {
   searchParams: Promise<{
     q?: string | string[];
+    source?: string | string[];
   }>;
 };
 
@@ -24,22 +23,41 @@ export default async function TeacherQuestionsPage({
     getTeacherQuestionSets(filters, "/questions"),
     getPublicQuestionSetImportOptions("/questions"),
   ]);
+  const normalizedSearch = filters.query.toLowerCase();
+  const publicSets = normalizedSearch
+    ? importSets.filter((set) =>
+        [set.title, set.description ?? ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch),
+      )
+    : importSets;
+  const showOwn = filters.source === "own" || filters.source === "all";
+  const showPublic = filters.source === "public" || filters.source === "all";
+  const resultCount =
+    (showOwn ? questionSetResult.sets.length : 0) +
+    (showPublic ? publicSets.length : 0);
 
   return (
-    <main className="min-h-screen bg-[#f6f8f5] px-5 py-8 text-[#17211b] sm:px-8">
-      <div className="mx-auto max-w-7xl">
+    <main className="min-h-screen bg-[#f8fafd] px-5 py-8 text-[#17211b] sm:px-8">
+      <div className="mx-auto max-w-6xl">
         <header className="flex flex-col gap-4 border-b border-[#d8dfda] pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#5f765f]">
-              Teacher workspace
+              Questions management
             </p>
-            <h1 className="mt-2 text-3xl font-semibold">Question sets</h1>
+            <h1 className="mt-2 text-3xl font-semibold">Questions</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[#607066]">
-              Build form-style sets with typed questions, answer keys, points,
-              and reusable drafts for exams.
+              Search, manage, and prepare reusable questions for group exams.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
+            <Link
+              className="flex h-10 items-center justify-center rounded-md bg-[#17211b] px-4 text-sm font-semibold text-white transition hover:bg-[#26352b]"
+              href="/questions/new"
+            >
+              Create Questions
+            </Link>
             <Link
               className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
               href="/exams"
@@ -61,23 +79,19 @@ export default async function TeacherQuestionsPage({
           </div>
         ) : null}
 
-        <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
-          <section className="space-y-5">
-            <QuestionFilters
-              filters={filters}
-              resultCount={questionSetResult.sets.length}
-            />
-            <QuestionSetList
-              sets={questionSetResult.sets}
-              schemaReady={questionSetResult.schemaReady}
-            />
-          </section>
+        <section className="mt-8 space-y-6">
+          <QuestionFilters
+            filters={filters}
+            resultCount={resultCount}
+          />
 
-          <aside className="space-y-6">
-            <PublicSetImportPanel sets={importSets} />
-            <QuestionSetBuilder mode="create" />
-          </aside>
-        </div>
+          <QuestionSetList
+            publicSets={showPublic ? publicSets : []}
+            schemaReady={questionSetResult.schemaReady}
+            sets={showOwn ? questionSetResult.sets : []}
+            source={filters.source}
+          />
+        </section>
       </div>
     </main>
   );

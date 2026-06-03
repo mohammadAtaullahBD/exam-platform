@@ -943,58 +943,6 @@ async function run() {
   );
   assert(wrongAnswers.length === 1, "Expected one wrong answer for practice.");
 
-  const post = expectNoError(
-    await teacher.client
-      .from("posts")
-      .insert({ teacher_id: teacher.id, content: `${runId} teacher post` })
-      .select("id")
-      .single(),
-    "teacher creates post",
-  );
-  assert(
-    expectNoError(
-      await student.client.from("posts").select("id").eq("id", post.id).single(),
-      "student reads teacher post",
-    ).id === post.id,
-    "Student did not read teacher post.",
-  );
-  expectNoError(
-    await student.client
-      .from("reactions")
-      .insert({ post_id: post.id, user_id: student.id, type: "like" })
-      .select("id")
-      .single(),
-    "student reacts to post",
-  );
-  expectError(
-    await student.client
-      .from("reactions")
-      .insert({ post_id: post.id, user_id: student.id, type: "like" })
-      .select("id")
-      .single(),
-    "duplicate student reaction is rejected",
-  );
-  expectNoError(
-    await student.client
-      .from("comments")
-      .insert({ post_id: post.id, user_id: student.id, content: "Looks good." })
-      .select("id")
-      .single(),
-    "student comments on post",
-  );
-  expectError(
-    await teacher.client
-      .from("comments")
-      .insert({
-        post_id: post.id,
-        user_id: teacher.id,
-        content: "Teacher comment should not pass RLS.",
-      })
-      .select("id")
-      .single(),
-    "teacher cannot create student comment",
-  );
-
   const adminQuestion = expectNoError(
     await admin.client
       .from("questions")
@@ -1199,7 +1147,6 @@ console.log(
         "active submission and expired rejection",
         "merit ranking after close",
         "progress and practice reads",
-        "social post reactions and comments",
         "admin-only public sets",
         "public exam scoring reads",
         "teacher public-set import original_id",

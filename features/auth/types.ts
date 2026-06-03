@@ -9,12 +9,6 @@ export type Profile = {
   createdAt: string | null;
 };
 
-export type TeacherPost = {
-  id: string;
-  content: string;
-  createdAt: string;
-};
-
 export type UpdateProfileState = {
   status: "idle" | "success" | "error";
   message: string;

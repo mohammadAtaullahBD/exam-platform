@@ -2,6 +2,148 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-06-03: Teacher Dashboard/Profile Refresh and Social UI Removal (Codex)
+
+### [+] Features
+- Replaced the starter `/dashboard` with a teacher-focused workspace showing batch, student-membership, question-set, exam, scheduled, and closed-exam context.
+- Added a dashboard theme toggle with `System`, `Light`, and `Dark` modes; `System` is the default and is applied before hydration.
+- Enhanced the teacher profile page with a stronger identity header, teaching bio, joined/status details, and direct workspace navigation.
+
+### [x] Successes
+- Removed the active public post product surface: deleted `/posts`, `/student/feed`, `features/posts`, `features/comments`, `features/reactions`, and `lib/validations/social.ts`.
+- Removed teacher profile post queries/rendering and removed post/feed navigation from role dashboards.
+- Updated smoke coverage so protected-route smoke no longer expects `/posts` or `/student/feed`; the compiled route list now omits both routes.
+- Removed the social create/react/comment workflow from live workflow smoke while leaving operational cleanup for existing live database tables intact.
+- Re-ran `npm run typecheck`, `npm run lint`, `npm run build`, `npm run smoke:static`, and `npm run smoke:routes`; all passed.
+
+### [!] Failures/Blockers
+- No schema migration was added. Existing `public.posts`, `public.reactions`, and `public.comments` tables remain in the live database and generated types for historical data and migration compatibility; the user-facing UI and feature code are removed.
+
+## 2026-06-02: Batch Detail Local Server Refresh (Codex)
+
+### [x] Successes
+- Rechecked `/batches/[id]` after the project owner reported the route was still showing the old management form.
+- Confirmed the current working tree already renders `/batches/[id]` as a read-only detail screen with batch edit/delete icon dialogs and a row/column student grid with per-student edit/delete dialogs.
+- Found `localhost:3000` was running `next start`, which serves the previous `.next` production bundle; rebuilt the app and restarted the production server on port 3000 so the current batch detail UI is served.
+- Re-ran `npm run typecheck`, `npm run lint`, `npm run build`, and `npm run smoke:routes`; all passed.
+
+### [!] Failures/Blockers
+- No schema migration or code patch was needed for this specific request.
+
+## 2026-06-02: Teacher Batches Workspace (Codex)
+
+### [+] Features
+- Added `/batches` as the teacher batch management screen with recent batch cards and a primary `Create batch` action.
+- Added `/batches/new` as a dedicated batch creation screen; teachers can create an empty batch with a name/description or optionally add initial existing students before saving.
+- Added `/batches/[id]` as the batch management screen for editing batch details, copying the invite link, adding existing students by email, updating roll/custom identity, removing students, and deleting the batch.
+- Refined `/batches/[id]` into a read-first detail screen: batch details are shown by default, edit/delete actions use icon buttons and pop-up dialogs, and students are displayed in a row/column grid with row edit/delete icons.
+- Changed the old teacher `/groups` route into a compatibility redirect to `/batches`.
+- Updated teacher navigation from `/groups` to `/batches` and shifted visible student-facing membership copy from groups to batches while keeping existing internal table/feature names.
+
+### [x] Successes
+- Added server actions for teacher-owned batch member add/remove, guarded by signed-in teacher ownership checks before service-role writes.
+- Verified `npm run typecheck`, `npm run lint`, `npm run build`, and `npm run check`; all passed.
+- Re-ran `npm run smoke:routes`; 27 protected routes passed, now including `/batches`, `/batches/new`, and `/batches/[id]`.
+- Verified local route behavior against the restarted production server: `/batches`, `/batches/new`, and `/batches/[id]` redirect unauthenticated users to sign-in, while `/groups` redirects to `/batches`.
+- Ran a live Supabase batch smoke with temporary data: created a batch, added an existing student, confirmed roll auto-assignment, updated roll/custom identity, removed the student, deleted the temporary batch, and cleaned up.
+- Verified the authenticated Chrome UI flow end to end: `/batches` opened from the teacher session, `Create batch` opened `/batches/new`, an empty temporary batch saved and redirected to `/batches/[id]`, student add/update/remove controls worked, and the batch delete flow returned to `/batches` with no leftover live rows.
+- Verified the exact `/batches/02b52da4-dd79-4036-ab51-30507a91f38b` detail page renders read-only batch data by default, opens the batch edit modal, opens the batch delete warning with Delete/Cancel actions, and exposes student row edit/delete modals from the grid.
+
+### [!] Failures/Blockers
+- No schema migration was needed; the app still stores batches in `public.groups` by design.
+
+## 2026-06-02: Question Set Copy Redirect Fix (Codex)
+
+### [x] Successes
+- Reproduced the reported local failure path and confirmed the live `Test2` question payloads were valid; direct service-role and authenticated Supabase copy smokes copied all 3 questions and cleaned up temporary data.
+- Hardened the copy action so legacy `original_question_id` values are validated against `public.questions` before insert; invalid stale references are copied as `null` instead of failing the whole duplicate.
+- Rebuilt and restarted the stale local `next start -p 3000` process; the final authenticated Chrome UI pass copied `Test2`, redirected into the editable `/questions/[id]` form, and no longer showed the copy error.
+- Fixed teacher-owned question-set copying from `/questions`: copied question rows now preserve the valid legacy `original_question_id` when present and leave it null otherwise, instead of writing a `question_set_questions.id` into the `public.questions` FK column.
+- Copying a teacher-owned set now creates the duplicate and redirects directly to `/questions/[id]` so the teacher lands in the editable question creation form with all copied questions.
+- Copying a published public question set now also redirects directly to the new editable `/questions/[id]` set and stores the source set id on `question_sets.original_id`.
+- Ran a live Supabase copy smoke with temporary teacher-owned question sets containing null `original_question_id` values; copied rows inserted successfully and temporary data was cleaned up.
+- Restarted the stale local `next start -p 3000` process that was still serving the old compiled server action bundle.
+- Ran a focused live diagnostic against the real `Test2` question set: all 3 questions copied successfully into a temporary editable set, and the temporary copy was cleaned up.
+- Re-ran `npm run typecheck`, `npm run lint`, `npm run build`, and `npm run check`; all passed.
+- Re-ran `npm run smoke:routes` against the restarted local server; 25 protected routes passed.
+
+### [!] Failures/Blockers
+- No schema migration was needed for this fix.
+
+## 2026-06-02: Exam Workspace Redesign and Batch Identity (Codex)
+
+### [+] Features
+- Renamed the teacher-facing question source filter from “Own questions” to “My Questions”.
+- Reworked `/exams` into a questions-style teacher workspace with a primary “Create exam” button, recent exam cards, and modal create/edit flow.
+- Moved exam statistics from the `/exams` side panel into dedicated `/exams/[id]` detail screens with full-width all-student results.
+- The exam modal now asks for exam title, student batch, start/end date-time, and searchable question sets from My Questions, Public Questions, and current scheduled-exam snapshots.
+- Exam create/edit now stores selected question sets as immutable exam question snapshots; teacher-owned sets and published public sets are expanded server-side in their saved order.
+- Active exams can now be opened for postponing/extending time while batch and questions remain locked; scheduled exams still allow full edit.
+- Scheduled/active exam deletion now asks for confirmation and the server refuses deletes after submissions exist.
+- The exam question-set selector now defaults to My Questions for new exams.
+- Added scheduled exam editing through `updateExam`, preserving current snapshots when selected and replacing snapshots safely when teachers change questions.
+- Exam cards now show participation statistics derived from existing data: taken count, absent count, student count, question count, max points, average score, ungraded manual submissions, and per-student result rows.
+- Exam cards now open the dedicated statistics/results screen; `/exams` stays focused on exam management.
+- Teachers can copy their own question sets from `/questions` into a new editable set for quick variation work.
+- Question builder and exam modal now warn about unsaved work before leaving, with explicit leave/stay choices; browser close/refresh also uses the native unsaved-work warning.
+- Added migration `20260602014148_batch_member_identity.sql` so `public.group_members` stores `roll_number` and optional `student_identity`; existing members are backfilled by join order and new members receive the next roll automatically.
+- Updated teacher batch cards so teachers can manage per-student roll and custom identity labels without changing student profiles.
+- Updated teacher-facing “group” copy to “batch” in the dashboard, `/groups`, and `/exams` surfaces while preserving the existing database table names.
+
+### [x] Successes
+- Applied `20260602014148_batch_member_identity.sql` to the linked Supabase project.
+- Marked migration `20260602014148` applied in linked migration history before the later pooler circuit breaker.
+- Re-ran `npm run typecheck`, `npm run lint`, `npm run build`, `npm run smoke:static`, `npm run smoke:routes`, and `npm run check`; all passed. Protected-route smoke now covers `/exams/[id]`.
+- Re-ran `npm run typecheck`, `npm run lint`, `npm run build`, `npm run smoke:static`, `npm run check`, and `npm run smoke:routes` after changing the exam builder to select question sets; all passed.
+- Re-ran Supabase advisors; the only warning remains project-level `auth_leaked_password_protection`.
+
+### [!] Failures/Blockers
+- A post-apply `supabase migration list --linked` check hit Supabase pooler `ECIRCUITBREAKER`; retries were stopped per project rule.
+- Linked DB lint hit the same Supabase pooler `ECIRCUITBREAKER`; rerun after the pooler clears.
+- Linked type generation timed out during the pooler instability, so `types/database.ts` was updated narrowly for the new `group_members.roll_number` and `group_members.student_identity` fields; official regeneration should be rerun after the pooler clears.
+
+### [>] Next Steps
+- After the Supabase pooler clears, rerun `npx.cmd supabase migration list --linked`, linked DB lint, and linked type generation.
+- Run an authenticated visual pass on `/exams` and `/groups` with a teacher session before pushing/redeploying.
+
+## 2026-06-01: Question Builder Responsive UI and Manual Paragraph Grading (Codex)
+
+### [+] Features
+- Split teacher questions into dedicated routes: `/questions` for saved-set management/search, `/questions/new` for blank question-set creation, and `/questions/[id]` for editing.
+- Reworked the question-set builder into a more Google-Forms-like responsive form with drag handles for question reordering, icon actions for duplicate/delete/remove-option, and no up/down reorder buttons.
+- Added hidden-by-default descriptions, a focused-field formatting toolbar, a default-off required toggle, a correct-answer dropdown for option questions, and per-question shuffle-option-order settings.
+- Added builder undo/redo controls, preview, theme color selection, visual rich-text formatting, and a checked three-dot menu that closes on outside click.
+- Replaced the `/questions` plus-card and import-card flow with a source filter for own, public, and all question collections; teachers can edit/delete their own collections and copy public collections as their own editable questions.
+- Updated question UI copy to use platform terms such as Questions, Create Questions, and Questions management.
+- Changed the creator to use the site default color scheme by default, with optional primary/background theme pairs, and moved Undo/Redo/Preview/Theme plus navigation into a separate top bar.
+- Added manual paragraph grading support: paragraph questions can be manual or ungraded, manual points are preserved in snapshots, submissions store manual paragraph answers as ungraded, and teachers can enter/update paragraph scores from `/exams/[id]/merit` after the exam closes.
+- Added migrations `20260601150149_allow_manual_paragraph_grading.sql`, `20260601153705_grant_question_validation_to_service_role.sql`, and `20260601160118_allow_single_choice_option.sql`.
+
+### [x] Successes
+- Applied all three new migrations to the linked Supabase project and aligned linked migration history through `20260601160118`.
+- Verified authenticated local question UI rendering with a temporary teacher session: management/search, blank creation, edit view, one-option defaults, shuffle setting, manual paragraph option, and existing question editing all returned 200 and rendered expected content; temporary fixtures were cleaned up.
+- Verified the same local question UI routes with the project owner's provided teacher account without printing credentials.
+- Verified a live teacher-account save path: a temporary rich-text question set with one option and shuffle enabled saved through RLS, read back correctly, and was cleaned up.
+- Reproduced and fixed the reported two-question create failure: contentEditable fields now initialize/sync hidden form values, duplicate copies question text and description with fresh keys, blank titles default to `Untitled Form`, and optional scale/rating fields no longer invalidate multiple-choice questions.
+- Verified the exact browser flow with the teacher account: placeholder text was visible, one rich-text question plus description duplicated into two multiple-choice questions, create succeeded, Supabase readback found both rows, and cleanup deleted the temporary set.
+- Removed the React style warning source by no longer mixing `borderColor` and `borderLeftColor` during question drag rendering, and set drag/drop transfer hints for the reorder handle.
+- Re-ran local verification after the management/theme update: `npm run typecheck`, `npm run lint`, `npm run build`, `npm run smoke:static`, and `npm run smoke:routes` all passed.
+- Fixed `/questions/new` so it is protected by teacher auth instead of being statically public.
+- Captured local screenshots for project-owner review at `.next/questions-management.png` and `.next/questions-create.png`.
+- Re-ran `npm run check`; lint, typecheck, and production build passed.
+- Re-ran `npm run smoke:static`, `npm run smoke:routes`, and `npm run smoke:live-workflows`; all passed, with live workflow cleanup completed.
+- Re-ran linked Supabase DB lint; no schema errors were found.
+- Re-ran linked Supabase advisors; the only warning remains project-level `auth_leaked_password_protection`.
+- Started a local production preview at `http://localhost:3000/questions` for project-owner visual review before any GitHub/Vercel push.
+
+### [!] Failures/Blockers
+- No implementation blockers remain. Final GitHub push/Vercel redeploy is intentionally paused until the project owner approves the local UI preview.
+- A final linked `supabase migration list --linked` rerun hit Supabase pooler `ECIRCUITBREAKER`; retries were stopped per project rule. The earlier migration-list check in this pass had already aligned through `20260601160118`.
+- The only Supabase advisor warning is still project-level `auth_leaked_password_protection`, which cannot be fixed in committed app code.
+
+### [>] Next Steps
+- After visual approval, commit the UI/manual-grading changes, push `codex/complete-remaining-platform`, and let the connected Vercel project redeploy.
+
 ## 2026-06-01: Google-Forms-Style Question Sets and Speed Insights Redeploy (Codex)
 
 ### [+] Features

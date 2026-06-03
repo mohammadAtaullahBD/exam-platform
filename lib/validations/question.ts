@@ -1,8 +1,23 @@
 import { z } from "zod";
 
+import { richTextToPlainText, sanitizeRichText } from "@/lib/rich-text";
+
 function formString(value: unknown) {
   return typeof value === "string" ? value : "";
 }
+
+function richTextString(value: unknown) {
+  return sanitizeRichText(formString(value));
+}
+
+function hasRichText(value: string) {
+  return richTextToPlainText(value).length > 0;
+}
+
+const richTextContentSchema = z
+  .string()
+  .max(4000, "Question text must be 4,000 characters or fewer.")
+  .refine(hasRichText, "Question text is required.");
 
 const optionSchema = z.preprocess(
   formString,
@@ -23,19 +38,15 @@ const questionTypeSchema = z.enum([
   "rating",
 ]);
 
-const gradingModeSchema = z.enum(["auto", "none"]);
+const gradingModeSchema = z.enum(["auto", "manual", "none"]);
 
 export const questionSchema = z
   .object({
     content: z.preprocess(
-      formString,
-      z
-        .string()
-        .trim()
-        .min(1, "Question text is required.")
-        .max(2000, "Question text must be 2,000 characters or fewer."),
+      richTextString,
+      richTextContentSchema,
     ),
-    options: z.array(optionSchema).min(2).max(6),
+    options: z.array(optionSchema).min(1).max(6),
     correctOptionIndex: z.coerce
       .number("Choose the correct option.")
       .int("Choose the correct option.")
@@ -69,30 +80,29 @@ export const questionSchema = z
 
 export const questionSetSchema = z.object({
   title: z.preprocess(
-    formString,
+    (value) => {
+      const title = richTextString(value);
+
+      return richTextToPlainText(title) ? title : "Untitled Form";
+    },
     z
       .string()
       .trim()
-      .min(1, "Set title is required.")
       .max(120, "Set title must be 120 characters or fewer."),
   ),
   description: z
-    .preprocess(formString, z.string().trim().max(1000))
+    .preprocess(richTextString, z.string().trim().max(2000))
     .transform((value) => (value ? value : null)),
 });
 
 export const questionSetItemSchema = z
   .object({
     content: z.preprocess(
-      formString,
-      z
-        .string()
-        .trim()
-        .min(1, "Question text is required.")
-        .max(2000, "Question text must be 2,000 characters or fewer."),
+      richTextString,
+      richTextContentSchema,
     ),
     description: z
-      .preprocess(formString, z.string().trim().max(1000))
+      .preprocess(richTextString, z.string().trim().max(2000))
       .transform((value) => (value ? value : null)),
     questionType: questionTypeSchema,
     options: z.array(optionSchema).max(12),
@@ -105,14 +115,15 @@ export const questionSetItemSchema = z
     scaleMinLabel: z.preprocess(formString, z.string().trim().max(80)),
     scaleMaxLabel: z.preprocess(formString, z.string().trim().max(80)),
     ratingMax: z.coerce.number().int().min(2).max(10).optional(),
+    shuffleOptions: z.boolean(),
   })
   .superRefine((data, context) => {
     const choiceTypes = ["multiple_choice", "checkboxes", "dropdown"];
 
-    if (choiceTypes.includes(data.questionType) && data.options.length < 2) {
+    if (choiceTypes.includes(data.questionType) && data.options.length < 1) {
       context.addIssue({
         code: "custom",
-        message: "Choice questions need at least two options.",
+        message: "Choice questions need at least one option.",
         path: ["options"],
       });
     }
@@ -138,6 +149,34 @@ export const questionSetItemSchema = z
           path: ["scaleMin"],
         });
       }
+    }
+
+    if (data.questionType !== "paragraph" && data.gradingMode === "manual") {
+      context.addIssue({
+        code: "custom",
+        message: "Manual grading is only available for paragraph questions.",
+        path: ["gradingMode"],
+      });
+    }
+
+    if (data.questionType === "paragraph" && data.gradingMode === "auto") {
+      context.addIssue({
+        code: "custom",
+        message: "Paragraph questions can be manually graded or ungraded.",
+        path: ["gradingMode"],
+      });
+    }
+
+    if (
+      data.questionType === "paragraph" &&
+      data.gradingMode === "manual" &&
+      data.points <= 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Manual paragraph grading needs at least 1 point.",
+        path: ["points"],
+      });
     }
 
     if (data.questionType !== "paragraph" && data.gradingMode === "auto") {
@@ -201,6 +240,8 @@ export const questionSetItemSchema = z
   })
   .transform((data) => {
     if (data.questionType === "paragraph") {
+      const gradingMode = data.gradingMode === "manual" ? "manual" : "none";
+
       return {
         content: data.content,
         description: data.description,
@@ -209,8 +250,8 @@ export const questionSetItemSchema = z
         settings: {},
         answerKey: {},
         isRequired: data.isRequired,
-        points: 0,
-        gradingMode: "none" as const,
+        points: gradingMode === "manual" ? data.points : 0,
+        gradingMode,
       };
     }
 
@@ -228,7 +269,7 @@ export const questionSetItemSchema = z
         },
         answerKey: data.answerKey ? { value: data.answerKey } : {},
         isRequired: data.isRequired,
-        points: data.points,
+        points: data.gradingMode === "none" ? 0 : data.points,
         gradingMode: data.gradingMode,
       };
     }
@@ -244,7 +285,7 @@ export const questionSetItemSchema = z
         },
         answerKey: data.answerKey ? { value: data.answerKey } : {},
         isRequired: data.isRequired,
-        points: data.points,
+        points: data.gradingMode === "none" ? 0 : data.points,
         gradingMode: data.gradingMode,
       };
     }
@@ -257,7 +298,9 @@ export const questionSetItemSchema = z
         data.questionType === "short_answer"
           ? []
           : data.options,
-      settings: {},
+      settings: data.shuffleOptions
+        ? { shuffleOptions: true }
+        : {},
       answerKey: data.answerKey
         ? data.questionType === "checkboxes" || data.questionType === "short_answer"
           ? {
@@ -269,13 +312,14 @@ export const questionSetItemSchema = z
           : { value: data.answerKey }
         : {},
       isRequired: data.isRequired,
-      points: data.points,
+      points: data.gradingMode === "none" ? 0 : data.points,
       gradingMode: data.gradingMode,
     };
   });
 
 export const questionFiltersSchema = z.object({
   q: z.preprocess(formString, z.string().trim().max(120)).optional(),
+  source: z.enum(["own", "public", "all"]).catch("own").optional(),
 });
 
 export type QuestionSetInput = z.infer<typeof questionSetSchema>;

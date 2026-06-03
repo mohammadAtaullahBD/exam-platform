@@ -180,17 +180,23 @@ export type Database = {
         Row: {
           group_id: string
           joined_at: string
+          roll_number: number
           student_id: string
+          student_identity: string | null
         }
         Insert: {
           group_id: string
           joined_at?: string
+          roll_number?: number
           student_id: string
+          student_identity?: string | null
         }
         Update: {
           group_id?: string
           joined_at?: string
+          roll_number?: number
           student_id?: string
+          student_identity?: string | null
         }
         Relationships: [
           {

@@ -14,6 +14,18 @@ type CreateExamFormProps = {
   questions: ExamQuestionOption[];
 };
 
+function questionValue(question: ExamQuestionOption) {
+  return question.source === "public"
+    ? `public-set:${question.id}`
+    : `set:${question.id}`;
+}
+
+function formatQuestionTypes(question: ExamQuestionOption) {
+  return question.questionTypes.length
+    ? question.questionTypes.map((type) => type.replaceAll("_", " ")).join(", ")
+    : "No question items";
+}
+
 function localDateTimeToIso(value: string) {
   if (!value) {
     return "";
@@ -55,7 +67,7 @@ export function CreateExamForm({ groups, questions }: CreateExamFormProps) {
     >
       <h2 className="text-xl font-semibold">Create exam</h2>
       <p className="mt-2 text-sm leading-6 text-[#607066]">
-        Select a group, schedule the window, and attach questions.
+        Select a batch, schedule the window, and attach question sets.
       </p>
 
       {state.message ? (
@@ -72,7 +84,7 @@ export function CreateExamForm({ groups, questions }: CreateExamFormProps) {
 
       {!canCreate ? (
         <div className="mt-5 rounded-md border border-[#e5d6b8] bg-[#fffaf0] px-4 py-3 text-sm leading-6 text-[#6c5620]">
-          Add at least one group and one question before creating an exam.
+          Add at least one batch and one question set before creating an exam.
         </div>
       ) : null}
 
@@ -95,14 +107,14 @@ export function CreateExamForm({ groups, questions }: CreateExamFormProps) {
         </label>
 
         <label className="block">
-          <span className="text-sm font-medium text-[#26352b]">Group</span>
+          <span className="text-sm font-medium text-[#26352b]">Batch</span>
           <select
             className="mt-2 h-12 w-full rounded-md border border-[#cfc7ba] bg-white px-4 text-base outline-none transition focus:border-[#58735f] focus:ring-4 focus:ring-[#58735f]/15"
             name="groupId"
             disabled={isPending || !canCreate}
             required
           >
-            <option value="">Choose a group</option>
+            <option value="">Choose a batch</option>
             {groups.map((group) => (
               <option value={group.id} key={group.id}>
                 {group.name}
@@ -170,29 +182,33 @@ export function CreateExamForm({ groups, questions }: CreateExamFormProps) {
                       className="mt-1 size-4 accent-[#17211b]"
                       name="questionIds"
                       type="checkbox"
-                      value={question.id}
+                      value={questionValue(question)}
                       disabled={isPending || !canCreate}
                     />
                     <span>
                       <span className="block text-sm font-semibold text-[#26352b]">
-                        {question.content}
+                        {question.title}
                       </span>
+                      {question.description ? (
+                        <span className="mt-1 block text-xs leading-5 text-[#607066]">
+                          {question.description}
+                        </span>
+                      ) : null}
                       <span className="mt-1 block text-xs leading-5 text-[#607066]">
-                        {question.sourceLabel} ·{" "}
-                        {question.questionType.replaceAll("_", " ")}
-                        {question.options.length
-                          ? ` · ${question.options.length} options`
-                          : ""}
-                        {question.correctAnswer
-                          ? ` · answer: ${question.correctAnswer}`
-                          : ""}
+                        {question.sourceLabel} - {question.questionCount}{" "}
+                        {question.questionCount === 1
+                          ? "question"
+                          : "questions"}{" "}
+                        - {formatQuestionTypes(question)}
                       </span>
                     </span>
                   </label>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-[#607066]">No questions available.</p>
+              <p className="text-sm text-[#607066]">
+                No question sets available.
+              </p>
             )}
           </div>
           {state.fieldErrors?.questionIds?.[0] ? (

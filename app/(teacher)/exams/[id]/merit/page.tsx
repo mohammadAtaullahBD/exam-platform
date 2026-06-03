@@ -1,7 +1,11 @@
 import Link from "next/link";
 
+import { ManualGradingPanel } from "@/features/exams/components/manual-grading-panel";
 import { MeritListView } from "@/features/exams/components/merit-list";
-import { getTeacherExamMeritList } from "@/features/exams/queries";
+import {
+  getTeacherExamManualGrading,
+  getTeacherExamMeritList,
+} from "@/features/exams/queries";
 
 type TeacherExamMeritPageProps = {
   params: Promise<{
@@ -13,7 +17,10 @@ export default async function TeacherExamMeritPage({
   params,
 }: TeacherExamMeritPageProps) {
   const { id } = await params;
-  const meritList = await getTeacherExamMeritList(id);
+  const [meritList, manualGradingQueue] = await Promise.all([
+    getTeacherExamMeritList(id),
+    getTeacherExamManualGrading(id),
+  ]);
 
   return (
     <main className="min-h-screen bg-[#f6f8f5] px-5 py-8 text-[#17211b] sm:px-8">
@@ -38,9 +45,9 @@ export default async function TeacherExamMeritPage({
           </Link>
         </header>
 
+        <ManualGradingPanel queue={manualGradingQueue} />
         <MeritListView meritList={meritList} />
       </div>
     </main>
   );
 }
-

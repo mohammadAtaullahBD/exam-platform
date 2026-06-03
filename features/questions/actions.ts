@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { toUserRole } from "@/lib/roles";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   questionSetItemSchema,
@@ -68,6 +69,28 @@ type PublicExamSetWithQuestionsRow = {
   public_exam_set_questions: PublicExamSetQuestionRow[] | null;
 };
 
+type QuestionSetCopyQuestionRow = {
+  id: string;
+  original_question_id: string | null;
+  content: string;
+  description: string | null;
+  question_type: string;
+  options: Json;
+  settings: Json;
+  answer_key: Json;
+  is_required: boolean;
+  points: number;
+  grading_mode: string;
+  sort_order: number;
+};
+
+type QuestionSetCopyRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  question_set_questions: QuestionSetCopyQuestionRow[] | null;
+};
+
 async function requireTeacher(callbackUrl: string) {
   const supabase = await createClient();
   const {
@@ -90,6 +113,12 @@ function getString(formData: FormData, name: string) {
   const value = formData.get(name);
 
   return typeof value === "string" ? value : "";
+}
+
+function getOptionalString(formData: FormData, name: string) {
+  const value = formData.get(name);
+
+  return typeof value === "string" && value !== "" ? value : undefined;
 }
 
 function getBoolean(formData: FormData, name: string) {
@@ -120,11 +149,12 @@ function getQuestionInput(formData: FormData, index: string) {
     isRequired: getBoolean(formData, `question-${index}-required`),
     points: formData.get(`question-${index}-points`),
     gradingMode: formData.get(`question-${index}-gradingMode`),
-    scaleMin: formData.get(`question-${index}-scaleMin`),
-    scaleMax: formData.get(`question-${index}-scaleMax`),
+    scaleMin: getOptionalString(formData, `question-${index}-scaleMin`),
+    scaleMax: getOptionalString(formData, `question-${index}-scaleMax`),
     scaleMinLabel: formData.get(`question-${index}-scaleMinLabel`),
     scaleMaxLabel: formData.get(`question-${index}-scaleMaxLabel`),
-    ratingMax: formData.get(`question-${index}-ratingMax`),
+    ratingMax: getOptionalString(formData, `question-${index}-ratingMax`),
+    shuffleOptions: getBoolean(formData, `question-${index}-shuffleOptions`),
   };
 }
 
@@ -212,6 +242,32 @@ function schemaErrorMessage(error: DbError | null) {
   }
 
   return null;
+}
+
+async function getValidOriginalQuestionIds(originalQuestionIds: string[]) {
+  const uniqueIds = Array.from(new Set(originalQuestionIds.filter(Boolean)));
+
+  if (!uniqueIds.length) {
+    return new Set<string>();
+  }
+
+  const adminDb = createAdminClient();
+  const { data, error } = await adminDb
+    .from("questions")
+    .select("id")
+    .in("id", uniqueIds)
+    .returns<Array<{ id: string }>>();
+
+  if (error) {
+    console.error("Validate original question ids failed", {
+      code: error.code,
+      message: error.message,
+    });
+
+    return new Set<string>();
+  }
+
+  return new Set((data ?? []).map((question) => question.id));
 }
 
 async function replaceSetQuestions(
@@ -403,6 +459,112 @@ export async function deleteQuestionSet(
   };
 }
 
+export async function copyQuestionSet(
+  setId: string,
+  _previousState: QuestionSetActionState,
+): Promise<QuestionSetActionState> {
+  void _previousState;
+
+  const { db, user } = await requireTeacher("/questions");
+  const { data: set, error: setError } = (await db
+    .from("question_sets")
+    .select("id,title,description,question_set_questions(*)")
+    .eq("id", setId)
+    .eq("teacher_id", user.id)
+    .single()) as DbResponse<QuestionSetCopyRow>;
+
+  if (setError || !set) {
+    return {
+      status: "error",
+      message:
+        schemaErrorMessage(setError) ??
+        "Question set could not be copied. Please try again.",
+    };
+  }
+
+  const questions = [...(set.question_set_questions ?? [])].sort(
+    (left, right) => left.sort_order - right.sort_order,
+  );
+
+  if (!questions.length) {
+    return {
+      status: "error",
+      message: "This question set has no questions to copy.",
+    };
+  }
+
+  const validOriginalQuestionIds = await getValidOriginalQuestionIds(
+    questions
+      .map((question) => question.original_question_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  const copyTitle = `Copy of ${set.title}`.slice(0, 120);
+  const { data: createdSet, error: createSetError } = (await db
+    .from("question_sets")
+    .insert({
+      teacher_id: user.id,
+      title: copyTitle,
+      description: set.description,
+      original_id: set.id,
+    })
+    .select("id")
+    .single()) as DbResponse<{ id: string }>;
+
+  if (createSetError || !createdSet) {
+    console.error("Copy question set failed", {
+      code: createSetError?.code,
+      message: createSetError?.message,
+    });
+
+    return {
+      status: "error",
+      message:
+        schemaErrorMessage(createSetError) ??
+        "Question set could not be copied. Please try again.",
+    };
+  }
+
+  const insertRows = questions.map((question, index) => ({
+    set_id: createdSet.id,
+    original_question_id:
+      question.original_question_id &&
+      validOriginalQuestionIds.has(question.original_question_id)
+        ? question.original_question_id
+        : null,
+    content: question.content,
+    description: question.description,
+    question_type: question.question_type,
+    options: question.options,
+    settings: question.settings,
+    answer_key: question.answer_key,
+    is_required: question.is_required,
+    points: question.points,
+    grading_mode: question.grading_mode,
+    sort_order: index,
+  }));
+  const { error } = await db.from("question_set_questions").insert(insertRows);
+
+  if (error) {
+    console.error("Copy question set questions failed", {
+      code: error.code,
+      message: error.message,
+    });
+
+    await db.from("question_sets").delete().eq("id", createdSet.id);
+
+    return {
+      status: "error",
+      message: "Question set questions could not be copied. Please try again.",
+    };
+  }
+
+  revalidatePath("/questions");
+  revalidatePath(`/questions/${createdSet.id}`);
+  revalidatePath("/exams");
+  redirect(`/questions/${createdSet.id}`);
+}
+
 export async function copyPublicExamSetToQuestionSets(
   _previousState: QuestionImportActionState,
   formData: FormData,
@@ -443,12 +605,19 @@ export async function copyPublicExamSetToQuestionSets(
     };
   }
 
+  const validOriginalQuestionIds = await getValidOriginalQuestionIds(
+    questions
+      .map((question) => question.question_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+
   const { data: createdSet, error: createSetError } = (await db
     .from("question_sets")
     .insert({
       teacher_id: user.id,
       title: set.title,
       description: set.description,
+      original_id: set.id,
     })
     .select("id")
     .single()) as DbResponse<{ id: string }>;
@@ -479,7 +648,10 @@ export async function copyPublicExamSetToQuestionSets(
     points: 1,
     grading_mode: "auto",
     sort_order: index,
-    original_question_id: question.question_id,
+    original_question_id:
+      question.question_id && validOriginalQuestionIds.has(question.question_id)
+        ? question.question_id
+        : null,
   }));
   const { error } = await db.from("question_set_questions").insert(insertRows);
 
@@ -498,12 +670,7 @@ export async function copyPublicExamSetToQuestionSets(
   }
 
   revalidatePath("/questions");
+  revalidatePath(`/questions/${createdSet.id}`);
   revalidatePath("/exams");
-
-  return {
-    status: "success",
-    message: `${questions.length} ${
-      questions.length === 1 ? "question" : "questions"
-    } copied into a new set.`,
-  };
+  redirect(`/questions/${createdSet.id}`);
 }

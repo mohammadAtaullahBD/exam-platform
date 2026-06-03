@@ -61,8 +61,10 @@ The active teacher questions direction is question sets rather than standalone b
 
 Teacher-created exams live in `public.exams`, with ordered question rows in `public.exam_questions`.
 
-- Exam state is derived from `starts_at` and `ends_at` using database time; teachers can mutate only scheduled exams.
+- Exam state is derived from `starts_at` and `ends_at` using database time; teachers can fully mutate scheduled exams.
+- Active exams allow a restricted postpone/extend action through server actions: title/time can change, while batch and questions stay locked.
 - `exam_questions` snapshots selected question content, response type, help text, options, settings, answer key, grading mode, points, and required flag so later question-set edits do not rewrite an already assembled exam.
+- Teacher exam builders select whole question sets/public sets, not individual question rows; server actions expand each selected set into ordered `exam_questions` snapshots.
 - A `closed_at` timestamp and `private.close_due_exams()` exist for future merit-list processing, while visible state remains derived from the schedule.
 - Server-rendered exam, merit, progress, and practice surfaces use authenticated `public.database_now()` to avoid Node.js clock drift when deciding whether an exam is scheduled, active, or closed.
 
@@ -86,10 +88,10 @@ Public exam sets use separate set and attempt tables instead of overloading grou
 - Students can attempt published sets multiple times; no leaderboard is generated.
 - Teachers copy published public sets into editable teacher-owned question sets for customization.
 
-## Social Tables
+## Retired Social Product Surface
 
-Teacher posts remain in `public.posts`; Phase 4 adds `public.reactions` and `public.comments`.
+The public post/feed product surface is no longer active in the app.
 
-- The current feed follows existing post RLS and is visible to authenticated students.
-- Student reactions are deduplicated by `(post_id, user_id, type)`.
-- Comments and reactions are written only through server actions and student-scoped RLS policies.
+- `/posts`, `/student/feed`, and the post/comment/reaction feature slices are removed.
+- Teacher profiles and dashboards must not render post/feed UI.
+- Existing `public.posts`, `public.reactions`, and `public.comments` tables remain in the live database and migrations for historical compatibility; do not drop them without an explicit live-data deletion plan.

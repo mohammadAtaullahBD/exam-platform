@@ -9,10 +9,13 @@ export type QuestionType =
   | "linear_scale"
   | "rating";
 
-export type GradingMode = "auto" | "none";
+export type GradingMode = "auto" | "manual" | "none";
+
+export type QuestionSourceFilter = "own" | "public" | "all";
 
 export type QuestionSetFilters = {
   query: string;
+  source: QuestionSourceFilter;
 };
 
 export type QuestionSetQuestion = {

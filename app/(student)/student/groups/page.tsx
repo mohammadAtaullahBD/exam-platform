@@ -14,9 +14,9 @@ export default async function StudentGroupsPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#5f765f]">
               Student workspace
             </p>
-            <h1 className="mt-2 text-3xl font-semibold">Groups</h1>
+            <h1 className="mt-2 text-3xl font-semibold">Batches</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[#607066]">
-              Groups you join from teacher invite links will appear here.
+              Batches you join from teacher invite links will appear here.
             </p>
           </div>
           <Link

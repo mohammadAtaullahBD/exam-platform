@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
-import type { Group, GroupInvite, StudentGroup } from "./types";
+import type { Group, GroupInvite, GroupMember, StudentGroup } from "./types";
 
 type GroupRow = Database["public"]["Tables"]["groups"]["Row"];
 
@@ -33,7 +33,19 @@ type GroupInviteRow = Pick<
   } | null;
 };
 
-function groupFromRow(row: GroupRow, memberCount: number): Group {
+type TeacherGroupMemberRow = {
+  group_id: string;
+  student_id: string;
+  joined_at: string;
+  roll_number: number | null;
+  student_identity: string | null;
+  users: {
+    name: string | null;
+    email: string | null;
+  } | null;
+};
+
+function groupFromRow(row: GroupRow, members: GroupMember[]): Group {
   return {
     id: row.id,
     teacherId: row.teacher_id,
@@ -42,7 +54,27 @@ function groupFromRow(row: GroupRow, memberCount: number): Group {
     inviteToken: row.invite_token,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    memberCount,
+    memberCount: members.length,
+    members,
+  };
+}
+
+function memberFromRow(
+  member: TeacherGroupMemberRow,
+  fallbackRollNumber: number,
+): GroupMember {
+  return {
+    groupId: member.group_id,
+    studentId: member.student_id,
+    studentName:
+      member.student_identity ??
+      member.users?.name ??
+      member.users?.email ??
+      "Unnamed student",
+    studentEmail: member.users?.email ?? null,
+    joinedAt: member.joined_at,
+    rollNumber: member.roll_number ?? fallbackRollNumber,
+    studentIdentity: member.student_identity,
   };
 }
 
@@ -69,7 +101,7 @@ async function requireRole(
   return { supabase, user };
 }
 
-export async function getTeacherGroups(callbackUrl = "/groups") {
+export async function getTeacherGroups(callbackUrl = "/batches") {
   const { supabase, user } = await requireRole("teacher", callbackUrl);
 
   const { data: groupRows, error } = await supabase
@@ -86,16 +118,54 @@ export async function getTeacherGroups(callbackUrl = "/groups") {
   const groupIds = groupRows.map((group) => group.id);
   const { data: memberRows } = await supabase
     .from("group_members")
-    .select("group_id")
+    .select("group_id,student_id,joined_at,roll_number,student_identity,users!group_members_student_id_fkey(name,email)")
     .in("group_id", groupIds)
-    .returns<Array<{ group_id: string }>>();
+    .order("roll_number", { ascending: true })
+    .returns<TeacherGroupMemberRow[]>();
 
-  const counts = new Map<string, number>();
+  const membersByGroupId = new Map<string, GroupMember[]>();
   for (const member of memberRows ?? []) {
-    counts.set(member.group_id, (counts.get(member.group_id) ?? 0) + 1);
+    const members = membersByGroupId.get(member.group_id) ?? [];
+
+    members.push(memberFromRow(member, members.length + 1));
+    membersByGroupId.set(member.group_id, members);
   }
 
-  return groupRows.map((group) => groupFromRow(group, counts.get(group.id) ?? 0));
+  return groupRows.map((group) => groupFromRow(group, membersByGroupId.get(group.id) ?? []));
+}
+
+export async function requireTeacherGroupAccess(callbackUrl = "/batches") {
+  await requireRole("teacher", callbackUrl);
+}
+
+export async function getTeacherGroupById(
+  groupId: string,
+  callbackUrl = `/batches/${groupId}`,
+) {
+  const { supabase, user } = await requireRole("teacher", callbackUrl);
+  const { data: group, error } = await supabase
+    .from("groups")
+    .select("*")
+    .eq("id", groupId)
+    .eq("teacher_id", user.id)
+    .maybeSingle<GroupRow>();
+
+  if (error || !group) {
+    return null;
+  }
+
+  const { data: memberRows } = await supabase
+    .from("group_members")
+    .select("group_id,student_id,joined_at,roll_number,student_identity,users!group_members_student_id_fkey(name,email)")
+    .eq("group_id", groupId)
+    .order("roll_number", { ascending: true })
+    .returns<TeacherGroupMemberRow[]>();
+
+  const members = (memberRows ?? []).map((member, index) =>
+    memberFromRow(member, index + 1),
+  );
+
+  return groupFromRow(group, members);
 }
 
 export async function getStudentGroups(callbackUrl = "/student/groups") {

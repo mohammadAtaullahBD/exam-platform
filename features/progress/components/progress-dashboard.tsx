@@ -59,7 +59,7 @@ export function ProgressDashboard({ data }: ProgressDashboardProps) {
               <thead className="bg-[#f6f8f5] text-[#607066]">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Exam</th>
-                  <th className="px-4 py-3 font-semibold">Group</th>
+                  <th className="px-4 py-3 font-semibold">Batch</th>
                   <th className="px-4 py-3 font-semibold">Score</th>
                   <th className="px-4 py-3 font-semibold">Merit</th>
                   <th className="px-4 py-3 font-semibold">Submitted</th>
@@ -120,4 +120,3 @@ export function ProgressDashboard({ data }: ProgressDashboardProps) {
     </div>
   );
 }
-

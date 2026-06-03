@@ -7,6 +7,17 @@ export type Group = {
   createdAt: string;
   updatedAt: string;
   memberCount: number;
+  members: GroupMember[];
+};
+
+export type GroupMember = {
+  groupId: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string | null;
+  joinedAt: string;
+  rollNumber: number;
+  studentIdentity: string | null;
 };
 
 export type StudentGroup = {
@@ -31,6 +42,10 @@ export type GroupActionState = {
   fieldErrors?: {
     name?: string[];
     description?: string[];
+    email?: string[];
+    rollNumber?: string[];
+    studentIdentity?: string[];
+    studentId?: string[];
     token?: string[];
   };
 };

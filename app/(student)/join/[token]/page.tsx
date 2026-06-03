@@ -31,18 +31,18 @@ export default async function JoinGroupPage({ params }: JoinGroupPageProps) {
         <header className="flex flex-col gap-4 border-b border-[#d8dfda] pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#5f765f]">
-              Group invite
+              Batch invite
             </p>
-            <h1 className="mt-2 text-3xl font-semibold">Join group</h1>
+            <h1 className="mt-2 text-3xl font-semibold">Join batch</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[#607066]">
-              Confirm the teacher and group details before joining.
+              Confirm the teacher and batch details before joining.
             </p>
           </div>
           <Link
             className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
             href="/student/groups"
           >
-            My groups
+            My batches
           </Link>
         </header>
 

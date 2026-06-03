@@ -25,7 +25,7 @@ export default async function StudentPublicExamsPage() {
               className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"
               href="/student/groups"
             >
-              Groups
+              Batches
             </Link>
             <Link
               className="flex h-10 items-center justify-center rounded-md border border-[#cfd8d2] px-4 text-sm font-semibold text-[#1f3528] transition hover:bg-[#eef5f0]"

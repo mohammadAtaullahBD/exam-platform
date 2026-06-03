@@ -20,25 +20,27 @@
 - Auth/profile migration SQL added under `supabase/migrations/`.
 - Phase 1 profiles implemented:
   - `/profile` renders the signed-in teacher or student profile based on trusted role.
-  - `/teacher/[id]` renders an authenticated public teacher profile with public posts and an empty state.
+  - `/teacher/[id]` renders an authenticated teacher profile without any public post/feed section.
   - `/profile/edit` updates `public.users.name` and `public.users.bio` through a Server Action.
   - `/student/profile` and `/student/profile/edit` exist as student-specific companion routes because route groups cannot duplicate `/profile`.
 - Linked Supabase database aligned for profiles:
   - `public.users.bio` exists.
-  - `public.posts` exists with `teacher_id`, `content`, and `created_at`.
+  - `public.posts` still exists in the linked database as historical/live schema, but the post/feed product UI and feature code are removed.
   - RLS is enabled on `public.users` and `public.posts`.
-  - Profile/post RLS policies were verified and duplicate legacy policies were simplified.
-  - Supabase advisors report no remaining profile/posts schema or RLS warnings.
-  - `types/database.ts` was regenerated and includes `users.bio` and `posts`.
+  - Profile/post RLS policies were previously verified and duplicate legacy policies were simplified.
+  - Supabase advisors previously reported no remaining profile/posts schema or RLS warnings.
+  - `types/database.ts` was regenerated and still includes live-schema `users.bio` and `posts`.
 - Hosted Supabase Auth config restored after local CLI defaults were detected:
   - Production site URL and auth callback redirect are restored.
   - Email confirmations, 8-digit email OTPs, and TOTP MFA are restored.
   - Minimum password length is now 8.
 - Phase 2 groups implemented:
-  - `public.groups` and `public.group_members` exist with invite tokens, FK indexes, timestamps, and RLS.
-  - `/groups` lets teachers create, rename, delete, and share private group invite links.
-  - `/student/groups` lists groups a student has joined.
-  - `/join/[token]` lets students join a group from an invite link through a Server Action.
+  - `public.groups` and `public.group_members` exist with invite tokens, FK indexes, timestamps, and RLS. Teacher-facing UI calls these private student batches while preserving the existing table names.
+  - `public.group_members` now stores `roll_number` and optional `student_identity`; existing members were backfilled by join order and new members receive the next roll automatically.
+  - `/batches` lists teacher batch cards, `/batches/new` creates an empty batch or a batch with optional initial existing students, and `/batches/[id]` shows batch details by default with icon-triggered edit/delete dialogs, invite-link copying, add-student dialog, and a row/column student grid with per-student edit/delete dialogs.
+  - The old teacher `/groups` route redirects to `/batches` for compatibility.
+  - `/student/groups` lists batches a student has joined.
+  - `/join/[token]` lets students join a batch from an invite link through a Server Action.
   - `features/groups/` contains the group actions, queries, types, and components.
   - `types/database.ts` was regenerated and includes `groups` and `group_members`.
 - Phase 2 questions implemented:
@@ -49,15 +51,28 @@
   - `types/database.ts` was regenerated and includes `questions`, `question_sets`, and `question_set_questions`.
   - Follow-up migration `20260524171724_grant_question_validation_helpers.sql` grants authenticated users the private validation helper access needed for question inserts.
 - Active question-set UI slice implemented:
-  - `/questions` now renders a Google-Forms-like question-set builder/list instead of the older single-question bank.
-  - The builder supports set title/description, question add/remove/duplicate/move, short answer, paragraph, multiple choice, checkboxes, dropdown, linear scale, rating, options, answer keys, required toggles, points, and scale/rating settings.
-  - Public-set import is adapted to copy a published public set into a teacher-owned question set.
-  - Paragraph questions are stored as responses but remain unscored until a manual grading workflow is added.
+  - `/questions` now renders the questions management/search screen, `/questions/new` renders question creation, and `/questions/[id]` renders editing.
+  - `/questions` filters question collections by own, public, or all; own is selected by default. Own collections can be edited, deleted, or copied into a new editable set, while public collections can be copied as the teacher's own editable questions. Copy actions open the new `/questions/[id]` editor immediately so teachers can edit, add, or delete copied questions.
+  - The builder supports set title/description, question add/remove/duplicate/drag-reorder, short answer, paragraph, multiple choice, checkboxes, dropdown, linear scale, rating, one-option defaults, answer keys, required toggles, shuffle-option-order settings, points, and scale/rating settings.
+  - Builder actions use icon buttons for common tasks, question descriptions are hidden until toggled from the three-dot menu, option questions use a correct-answer dropdown, and focused text fields reveal visual bold, italic, underline, link, and clear-format toolbar actions.
+  - The three-dot menu uses checked toggle items and closes on outside click; the builder also has a separate top bar with navigation plus icon-only undo, redo, preview, and theme controls.
+  - The creator now uses the site default color scheme first, while optional themes pair a primary color with a background color.
+  - Rich-text fields now initialize and sync their hidden form values reliably, so placeholders show, duplicate copies question text/description, and failed validations do not silently erase the draft.
+  - Optional scale/rating form fields no longer invalidate multiple-choice submissions when those controls are not rendered.
+  - The old public-set import card was removed; public question collections are now listed through the source filter and copied from their card action.
+  - The drag UI no longer mixes conflicting border shorthand/non-shorthand styles, avoiding the React style warning during reorder rendering.
+  - Paragraph questions can be ungraded or manually graded; manual paragraph answers are stored as ungraded responses until the teacher scores them after exam close.
 - Phase 2 exams implemented:
   - `public.exams` and `public.exam_questions` exist with FK indexes, timestamps, RLS, and database-derived scheduled/active/closed state.
   - Exam questions store snapshots of selected question content, type, description, options, settings, answer key, required flag, and points.
   - A `pg_cron` job named `close-due-exams` calls `private.close_due_exams()` every minute to stamp ended exams with `closed_at`.
-  - `/exams` lets teachers create group exams from their question bank and list scheduled, active, and closed exams.
+  - `/exams` now renders a questions-style workspace: teachers open a modal to create exams, choose a student batch, schedule start/end times, search My/Public question sets, preserve current scheduled-exam snapshots while editing, and view recent exams as cards. New exams default the question source filter to My Questions.
+  - Exam creation/editing expands selected teacher-owned question sets and published public sets into ordered immutable `exam_questions` snapshots on the server.
+  - `/exams/[id]` is the dedicated teacher statistics/results screen with all student rows for the exam.
+  - Teachers can fully edit scheduled exams. Active exams can be postponed or extended while batch and questions remain locked. Closed exams remain statistics/result surfaces.
+  - Scheduled/active exam deletion asks for confirmation and server-side deletion is refused after any student submission exists.
+  - Question builder and exam modal surfaces warn before discarding unsaved teacher work.
+  - The exam detail route derives teacher statistics from existing memberships/submissions: taken count, absent count, average score, max points, ungraded manual answers, and per-student results with roll/custom identity labels where available.
   - `features/exams/` contains exam actions, queries, types, and components.
   - `types/database.ts` was regenerated and includes `exams` and `exam_questions`.
 - Phase 3 student core implemented:
@@ -67,16 +82,18 @@
   - `/student/exams/[id]/merit` and `/exams/[id]/merit` show rankings after close.
   - `/student/progress` shows previous closed exam scores and merit position.
   - `/student/practice` lets students retry questions they previously answered incorrectly without creating scores or merit entries.
-- Phase 4 social implemented:
-  - `public.reactions` and `public.comments` are defined in migration SQL with FK indexes, RLS, and duplicate reaction prevention.
-  - `/posts` lets teachers publish text-only posts.
-  - `/student/feed` lets students read posts, react, and comment.
+  - Teachers can manually grade paragraph answers from `/exams/[id]/merit` after exam close, and submission point totals are refreshed after each saved grade.
+- Phase 4 social retired from active product UI:
+  - The live database still contains historical `public.posts`, `public.reactions`, and `public.comments` tables.
+  - `/posts`, `/student/feed`, and the post/comment/reaction feature slices have been removed from the app.
+  - Teacher profiles and dashboards no longer render or link to post/feed surfaces.
 - Phase 5 public exams implemented:
   - `public.public_exam_sets`, `public.public_exam_set_questions`, `public.public_exam_attempts`, and `public.public_exam_attempt_answers` are defined in migration SQL with FK indexes and RLS.
   - Hidden `/public-sets` lets the super-user create published or draft public sets.
   - `/student/public-exams` lets students take published public sets at any time and stores personal scores only.
   - `/questions` lets teachers copy published public set questions into their own question bank with `original_id` preserved.
-- Dashboard navigation now links role-appropriate teacher/student workspaces while keeping hidden super-user routes unlinked.
+- Dashboard navigation now links role-appropriate teacher/student workspaces while keeping hidden super-user routes unlinked, and it no longer links to posts/feed.
+- `/dashboard` now renders a richer teacher workspace with batch, student-membership, question, exam, next/active exam, and recent-exam context plus a default-system theme toggle.
 - Added `scripts/smoke-routes.mjs` and `npm run smoke:routes` for unauthenticated protected-route and invalid admin-signup smoke coverage.
 - Added `scripts/verify-live-state.mjs` and `npm run verify:live-state` for aggregate Auth/profile verification without printing secrets.
 - `npm run verify:live-state` now also reports orphan profile role counts and aggregate direct dependency counts.
@@ -109,15 +126,31 @@
 - `npm run verify:auth-redirects`
 - `npm run smoke:static`
 - `npm run smoke:live-workflows`
-- `npm run smoke:routes` against a local production server, currently covering 22 protected routes.
+- `npm run smoke:routes` against a local production server, currently covering 25 protected routes after removing `/posts` and `/student/feed`.
 - `npx tsc --noEmit --incremental false`
 - `npx.cmd supabase db lint --linked --schema public --level warning --fail-on none --output-format json`
 - `npx.cmd supabase migration list --linked`
 - `npx.cmd supabase db advisors --linked --level warn --fail-on none --output-format json`
-- `npx.cmd supabase gen types typescript --linked --schema public` regenerated types through a temp file; no `types/database.ts` content diff was produced.
+- `npx.cmd supabase gen types typescript --linked --schema public` regenerated types through a temp file before the latest batch-member migration; after `20260602014148`, linked type generation timed out during pooler instability and should be rerun.
 - `20260531141254_google_form_question_sets.sql` was applied to the linked Supabase project and marked applied in migration history.
+- `20260601150149_allow_manual_paragraph_grading.sql`, `20260601153705_grant_question_validation_to_service_role.sql`, and `20260601160118_allow_single_choice_option.sql` were applied to the linked Supabase project and marked applied in migration history.
 - `types/database.ts` was regenerated from the linked schema after the question-set migration.
 - After the question-set migration, linked migration list and linked DB lint passed, and `npm run smoke:live-workflows` passed with 47 checks.
+- After the manual paragraph grading and single-choice-option migrations, linked migration list and linked DB lint passed, `npm run check` passed, `npm run smoke:static` passed, `npm run smoke:routes` passed against local production, `npm run smoke:live-workflows` passed with 47 checks, and linked Supabase advisors reported only `auth_leaked_password_protection`.
+- After `20260602014148_batch_member_identity.sql`, migration repair succeeded and linked advisors still reported only the known `auth_leaked_password_protection` warning. Post-apply linked migration-list and DB-lint checks hit Supabase pooler `ECIRCUITBREAKER`, and linked type generation timed out during the same instability; rerun those after the pooler clears.
+- Authenticated local question UI smoke with a temporary teacher session rendered management, `/questions/new`, `/questions/[id]`, one-option defaults, shuffle settings, and edit/manual paragraph views, then cleaned up temporary fixtures.
+- Authenticated local question UI smoke also passed with the project owner's provided teacher account.
+- Live teacher-account save verification created a temporary rich-text one-option question set with shuffle enabled, read it back, and cleaned it up successfully.
+- Browser-level verification with the teacher account reproduced the reported two-question create failure, then passed after the fix: placeholders visible, duplicate copied question and description, both questions stayed `multiple_choice`, create succeeded, Supabase readback found both rows, and cleanup deleted the temporary set.
+- Live Supabase copy smoke verified that teacher-owned question sets with null `original_question_id` values can be copied into a new editable question set and cleaned up afterward.
+- A focused diagnostic against the real `Test2` question set copied all 3 questions successfully after restarting the stale local `next start -p 3000` process that had been serving the old action bundle.
+- `npm run smoke:routes` now covers `/batches`, `/batches/new`, and `/batches/[id]`; unauthenticated route checks passed for 27 protected routes, and `/groups` redirects to `/batches`.
+- Live Supabase batch smoke verified temporary batch create, add existing student, roll auto-assignment, member identity update, member removal, and cleanup.
+- Authenticated Chrome UI verification covered `/batches` card/list access, `/batches/new` empty batch creation, redirect to `/batches/[id]`, student add/update/remove, batch delete, and live database cleanup.
+- Authenticated Chrome UI verification for `/batches/02b52da4-dd79-4036-ab51-30507a91f38b` confirmed the detail page is read-only by default, the batch edit/delete dialogs open correctly, the delete warning offers Delete and Cancel, and student rows expose edit/delete modal actions.
+- When a later local browser view still showed the older form-style page, the issue was traced to `next start` serving a stale `.next` bundle on port 3000; the app was rebuilt and the production server was restarted so `/batches/[id]` serves the current read-only detail implementation.
+- `npm run smoke:routes` now covers `/questions/new`, `/questions/[id]`, and `/exams/[id]`, increasing protected-route coverage to 25 routes.
+- After the dashboard/profile refresh, production build route output confirms `/posts` and `/student/feed` are no longer compiled app routes.
 - A later linked Supabase advisor run completed with only the known `auth_leaked_password_protection` warning.
 - Vercel successfully built commit `8024da2` as a Preview deployment, that deployment was promoted to Production, and `npm run smoke:routes` passed against `https://exam.ataullah.dev`.
 - Hosted Auth accepted both `https://exam.ataullah.dev/auth/callback` and `http://localhost:3000/auth/callback` in temporary signups; the temporary Auth users were deleted.
@@ -141,16 +174,17 @@
   - `/student/profile` redirects unauthenticated users to sign-in.
   - `/student/profile/edit` redirects unauthenticated users to sign-in.
   - `/teacher/[id]` redirects unauthenticated users to sign-in.
-  - `/groups` redirects unauthenticated users to sign-in.
+  - `/batches` redirects unauthenticated users to sign-in.
+  - `/batches/new` redirects unauthenticated users to sign-in.
+  - `/batches/[id]` redirects unauthenticated users to sign-in.
+  - `/groups` redirects to `/batches`.
   - `/student/groups` redirects unauthenticated users to sign-in.
   - `/join/[token]` redirects unauthenticated users to sign-in.
   - `/questions` redirects unauthenticated users to sign-in.
   - `/exams` redirects unauthenticated users to `/signin?callbackUrl=%2Fexams`.
-  - `/posts` redirects unauthenticated users to sign-in.
   - `/student/exams` redirects unauthenticated users to sign-in.
   - `/student/progress` redirects unauthenticated users to sign-in.
   - `/student/practice` redirects unauthenticated users to sign-in.
-  - `/student/feed` redirects unauthenticated users to sign-in.
   - `/student/public-exams` redirects unauthenticated users to sign-in.
   - `/student/exams/[id]` redirects unauthenticated users to sign-in.
   - `/student/exams/[id]/merit` redirects unauthenticated users to sign-in.
@@ -184,3 +218,5 @@ Live Auth/profile verification with `npm run verify:live-state` now confirms 4 A
 Supabase advisors run successfully with the installed CLI (`2.102.0`). The full linked advisor run after the database-time hardening migration reports only `auth_leaked_password_protection`; performance advisors previously reported no issues. After applying `20260530083805_database_time_and_post_length_hardening.sql`, migration list, linked DB lint, and linked advisors all succeeded. After applying `20260530032151_add_users_auth_fk_not_valid.sql`, direct SQL verified the FK exists, migration history was aligned, and linked types were regenerated with no content diff. Linked DB lint now works through the current CLI and reports no public-schema errors; local Docker/Supabase remains unavailable for local-only linting. After approved orphan cleanup, direct SQL verified the FK is validated and 0 orphan profiles remain. A later post-cleanup rerun confirmed linked migration list and linked DB lint are both successful again after the temporary pooler circuit breaker cleared.
 
 After applying `20260531141254_google_form_question_sets.sql`, linked migration list and linked DB lint succeeded. A later Supabase advisor run succeeded with only the known leaked-password-protection warning. A final post-verification `supabase migration list --linked` rerun hit pooler `ECIRCUITBREAKER`; retry loops were stopped per project rule, and linked migration list/DB lint should be rerun after the pooler clears.
+
+After applying `20260601150149_allow_manual_paragraph_grading.sql`, `20260601153705_grant_question_validation_to_service_role.sql`, and `20260601160118_allow_single_choice_option.sql`, linked migration list and linked DB lint succeeded. Linked advisors still report only the known leaked-password-protection warning.

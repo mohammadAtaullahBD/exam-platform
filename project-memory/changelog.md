@@ -1,7 +1,49 @@
 # Changelog
 
+## 2026-06-03 Dashboard/Profile Refresh and Social UI Removal
+
+- Removed the active public post UI: `/posts`, `/student/feed`, post/comment/reaction feature slices, and social form validation are no longer part of the app code.
+- Removed post/feed links from dashboards and removed post lists from teacher profiles.
+- Reworked `/dashboard` into a teacher-focused workspace with metrics for batches, student memberships, question sets, questions, points, scheduled exams, closed exams, next/active exam focus, recent exam context, and direct navigation to teacher workflows.
+- Added a `System`/`Light`/`Dark` theme toggle with `System` selected by default.
+- Enhanced teacher profile pages with a stronger header, avatar initials, bio, account details, edit/profile actions, and fast links to Batches, Questions, Exams, and Dashboard.
+- Updated route and live-workflow smoke scripts so they no longer cover removed social UI workflows.
+
+## 2026-06-02 Batches Workspace
+
+- Added `/batches`, `/batches/new`, and `/batches/[id]` for teacher batch management, with `/groups` redirecting to `/batches`.
+- Teachers can create empty batches or add initial existing students while creating, then edit batch details, copy invite links, add existing students by email, update roll/custom identity, remove students, and delete batches from the dedicated batch screen.
+- `/batches/[id]` now shows read-only batch details by default, with edit/delete icon actions opening pop-up dialogs, and student records shown in a row/column grid with row edit/delete icons.
+- Updated teacher navigation to use `/batches` and shifted visible membership copy from groups to batches while preserving the existing `public.groups` schema.
+
+## 2026-06-02 Copy Fix
+
+- Fixed question-set copy from `/questions` so copied teacher-owned sets preserve valid original-question references, open the new editable `/questions/[id]` form immediately, and public-set copies do the same.
+- Rebuilt/restarted the local production server after the stale bundle kept showing the old copy error, and verified in Chrome that copying `Test2` now opens the editable copied form.
+
+## 2026-06-02
+
+- Renamed question source copy from “Own questions” to “My Questions”.
+- Reworked teacher `/exams` into a questions-style workspace with recent exam cards and modal create/edit flow.
+- Added `/exams/[id]` as the dedicated teacher statistics/results screen with all student results.
+- Changed the exam modal's Questions selector to show question sets/public sets, with selected sets expanded into exam snapshots server-side.
+- Enabled active-exam postponing/extending from `/exams` while locking batch/question changes, added delete confirmation, and defaulted new exam question filtering to My Questions.
+- Added own-question-set copy from `/questions` so teachers can duplicate a set and edit the copy.
+- Added unsaved-work leave warnings to the question builder and exam modal.
+- Added scheduled exam editing with current-snapshot preservation plus My/Public question-set search in the exam modal.
+- Added migration `20260602014148_batch_member_identity.sql` with batch member `roll_number` and optional `student_identity`.
+- Updated teacher batch management so roll numbers and custom student identities can be edited from `/groups`.
+- Shifted teacher-facing copy from groups to batches on the dashboard, `/groups`, and `/exams` while preserving existing database table names.
+
 ## 2026-06-01
 
+- Split `/questions` into saved-set management/search, `/questions/new` blank creation, and `/questions/[id]` editing routes.
+- Reworked the question-set builder with responsive Google-Forms-like cards, drag reorder handles, icon actions, hidden-by-default descriptions, visual focused-field formatting controls, default-off required toggles, correct-answer dropdowns, checked three-dot menu toggles, undo/redo, preview, theme controls, and shuffle-option-order settings.
+- Updated `/questions` copy to platform language, removed the plus-card and import-card flow, and added own/public/all filtering with public collections copied as teacher-owned editable questions.
+- Moved the creator controls into a separate top bar, made preview/theme icon-only, switched the default creator theme back to the site color scheme, and added primary/background theme choices.
+- Removed the drag-render style warning by avoiding conflicting border shorthand and non-shorthand inline styles.
+- Fixed rich-text placeholder/synchronization in the question builder, duplicate question text/description copying, blank-title defaulting to `Untitled Form`, and optional scale/rating validation for multiple-choice submissions.
+- Added manual paragraph grading, teacher grading controls on `/exams/[id]/merit`, and migrations `20260601150149_allow_manual_paragraph_grading.sql`, `20260601153705_grant_question_validation_to_service_role.sql`, and `20260601160118_allow_single_choice_option.sql`.
 - Replaced teacher `/questions` with a Google-Forms-like question-set builder/list UI and server-action-backed set mutations.
 - Added migration `20260531141254_google_form_question_sets.sql` with `question_sets`, `question_set_questions`, typed question metadata, typed snapshots, JSON responses, and point fields.
 - Added question-set validation/types/actions/queries/components for short answer, paragraph, multiple choice, checkboxes, dropdown, linear scale, and rating question items.

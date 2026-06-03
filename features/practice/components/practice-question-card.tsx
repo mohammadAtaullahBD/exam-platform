@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import type { PracticeQuestion } from "@/features/practice/types";
+import { RichTextDisplay } from "@/features/questions/components/rich-text-display";
 
 type PracticeQuestionCardProps = {
   question: PracticeQuestion;
@@ -18,6 +19,27 @@ function scaleValues(min = 1, max = 5) {
   const end = Math.max(min, max);
 
   return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
+function stableHash(value: string) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash;
+}
+
+function displayOptions(question: PracticeQuestion) {
+  if (!question.settings.shuffleOptions) {
+    return question.options;
+  }
+
+  return [...question.options].sort(
+    (left, right) =>
+      stableHash(`${question.id}:${left}`) - stableHash(`${question.id}:${right}`),
+  );
 }
 
 export function PracticeQuestionCard({
@@ -55,12 +77,14 @@ export function PracticeQuestionCard({
             {question.groupName}
           </p>
           <h2 className="mt-2 text-lg font-semibold leading-7">
-            {index + 1}. {question.content}
+            <span>{index + 1}. </span>
+            <RichTextDisplay value={question.content} />
           </h2>
           {question.description ? (
-            <p className="mt-2 text-sm leading-6 text-[#607066]">
-              {question.description}
-            </p>
+            <RichTextDisplay
+              className="mt-2 block text-sm leading-6 text-[#607066]"
+              value={question.description}
+            />
           ) : null}
         </div>
         <div className="rounded-md border border-[#d8dfda] bg-[#f6f8f5] px-3 py-2 text-sm font-semibold text-[#1f3528]">
@@ -95,7 +119,7 @@ export function PracticeQuestionCard({
             value={selectedAnswer}
           >
             <option value="">Choose an answer</option>
-            {question.options.map((option) => (
+            {displayOptions(question).map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
@@ -129,7 +153,7 @@ export function PracticeQuestionCard({
           : null}
 
         {question.questionType === "multiple_choice"
-          ? question.options.map((option) => (
+          ? displayOptions(question).map((option) => (
               <label
                 className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3 rounded-md border border-[#d8dfda] bg-[#f9fbf8] p-3 text-sm font-medium text-[#26352b] transition-colors hover:bg-[#eef5f0]"
                 key={option}
@@ -151,7 +175,7 @@ export function PracticeQuestionCard({
           : null}
 
         {question.questionType === "checkboxes"
-          ? question.options.map((option) => (
+          ? displayOptions(question).map((option) => (
               <label
                 className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3 rounded-md border border-[#d8dfda] bg-[#f9fbf8] p-3 text-sm font-medium text-[#26352b] transition-colors hover:bg-[#eef5f0]"
                 key={option}
