@@ -2,6 +2,18 @@
 
 This file tracks the evolution of the Exam Platform, serving as a shared memory for all AI agents and developers.
 
+## 2026-06-03: Production Release for Teacher Workspace Updates (Codex)
+
+### [x] Successes
+- Committed the completed teacher workspace release as `0b2bfe4` and pushed it to both `codex/complete-remaining-platform` and `main`.
+- Vercel created production deployment `dpl_2UgKqf726ZpN4VwMD1rRisqHTv6X` at `https://exam-platform-qix89zx16-mohammadataullahbds-projects.vercel.app`.
+- Confirmed the deployment aliases include `https://exam.ataullah.dev`.
+- Verified `https://exam.ataullah.dev` returns HTTP 200.
+- Re-ran production protected-route smoke: `SMOKE_BASE_URL=https://exam.ataullah.dev npm run smoke:routes` passed for 25 protected routes.
+
+### [!] Failures/Blockers
+- The Vercel Codex app connector token was expired, so deployment inspection used the local Vercel CLI instead.
+
 ## 2026-06-03: Teacher Dashboard/Profile Refresh and Social UI Removal (Codex)
 
 ### [+] Features

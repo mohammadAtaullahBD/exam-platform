@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-06-03 Production Release
+
+- Pushed release commit `0b2bfe4` to GitHub on `codex/complete-remaining-platform` and fast-forwarded `main`.
+- Vercel production deployment `dpl_2UgKqf726ZpN4VwMD1rRisqHTv6X` became Ready and is aliased to `https://exam.ataullah.dev`.
+- Production route smoke passed for 25 protected routes at `https://exam.ataullah.dev`.
+
 ## 2026-06-03 Dashboard/Profile Refresh and Social UI Removal
 
 - Removed the active public post UI: `/posts`, `/student/feed`, post/comment/reaction feature slices, and social form validation are no longer part of the app code.
